@@ -18,13 +18,13 @@ jobs:
           java-version: '17'
       - name: Unpack and build
         run: |
-          unzip -q NovaOS-project*.zip
+          for z in NovaOS*.zip; do unzip -q -o "$z"; done
           cd novaos
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
       - name: Publish APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nova-${{ github.run_number }}
           name: NOVA build ${{ github.run_number }}
-          files: novaos/app/build/outputs/apk/debug/app-debug.apk
+          files: novaos/app/build/outputs/apk/release/app-release.apk
