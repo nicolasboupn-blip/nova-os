@@ -1,0 +1,30 @@
+name: Build NOVA APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Unpack and build
+        run: |
+          unzip -q NovaOS-project*.zip
+          cd novaos
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - name: Publish APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nova-${{ github.run_number }}
+          name: NOVA build ${{ github.run_number }}
+          files: novaos/app/build/outputs/apk/debug/app-debug.apk
