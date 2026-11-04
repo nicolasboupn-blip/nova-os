@@ -7,6 +7,7 @@ local NOVA_PORT = 41900
 local novaUdp = nil
 local novaNext = 0
 local novaNextObj = 0
+local novaNextPay = 0
 local novaPrevStart = LuaExportStart
 local novaPrevAfter = LuaExportAfterNextFrame
 local novaPrevStop = LuaExportStop
@@ -151,6 +152,28 @@ local function novaAutopilot(t)
   ap.lt = t
 end
 
+-- Your loadout for NOVA DCS WEAPONS, once a second: "N3;current station;station,count,name,level2,level3;..."
+local function novaPayload()
+  local p = nv(LoGetPayloadInfo)
+  if p == nil then return end
+  local out = {"N3", tostring(p.CurrentStation or 0)}
+  if p.Stations then
+    for i, st in pairs(p.Stations) do
+      if st.count and st.count > 0 and st.weapon then
+        local w = st.weapon
+        local name = ""
+        if LoGetNameByType then
+          local ok, r = pcall(LoGetNameByType, w.level1 or 0, w.level2 or 0, w.level3 or 0, w.level4 or 0)
+          if ok and r then name = r end
+        end
+        table.insert(out, table.concat({tostring(i), tostring(st.count), clean(name), tostring(w.level2 or 0),
+          tostring(w.level3 or 0)}, ","))
+      end
+    end
+  end
+  novaUdp:sendto(table.concat(out, ";"), NOVA_IP, NOVA_PORT)
+end
+
 local function novaObjects(s)
   local w = nv(LoGetWorldObjects)
   if w == nil then return end
@@ -217,11 +240,13 @@ function LuaExportAfterNextFrame()
   local lc = ""
   local lname = ""
   local lalt = ""
+  local lid = ""
   local lk = nv(LoGetLockedTargetInformation)
   if lk and lk[1] then
     local L = lk[1]
     ld = num(L.distance)
     lc = num(L.convergence_velocity)
+    lid = tostring(L.ID or "")
     local o = nv(LoGetObjectById, L.ID)
     if o then
       lname = clean(o.Name)
@@ -235,11 +260,15 @@ function LuaExportAfterNextFrame()
     num(s.Bank), num(e.fuel_internal), num(e.fuel_external), num(rpm.left), num(rpm.right), num(mv(m.gear)),
     num(mv(m.flaps)), num(mv(m.speedbrakes)), num(hook), num(mv(m.canopy)), num(mv(m.wheelbrakes)),
     tostring(sn.chaff or ""), tostring(sn.flare or ""), shells, num(pos.x), num(pos.y), num(pos.z), ld, lc,
-    lname, lalt, tostring(weapons), tostring(s.CoalitionID or "")}, ";")
+    lname, lalt, tostring(weapons), tostring(s.CoalitionID or ""), lid}, ";")
   novaUdp:sendto(msg, NOVA_IP, NOVA_PORT)
   if t >= novaNextObj then
     novaNextObj = t + 0.5
     pcall(novaObjects, s)
+    if t >= novaNextPay then
+      novaNextPay = t + 1
+      pcall(novaPayload)
+    end
   end
 end
 
