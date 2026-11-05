@@ -174,6 +174,183 @@ local function novaPayload()
   novaUdp:sendto(table.concat(out, ";"), NOVA_IP, NOVA_PORT)
 end
 
+-- Your own DCS key binds for NOVA (N4), every 20 s: for each command of the jet you fly,
+-- "name TAB default key TAB your key". Reads the jet's default.lua and your Keyboard.diff.lua.
+local novaKeyCache = {}
+local novaNextKeys = 0
+local NK_TAB = string.char(9)
+local NK_NL = string.char(10)
+
+local function nkPath(a, b)
+  local last = string.sub(a, -1)
+  if last == "/" or last == string.char(92) then return a .. b end
+  return a .. "/" .. b
+end
+
+local function nkRead(p)
+  local f = io.open(p, "r")
+  if f == nil then return nil end
+  local s = f:read("*a")
+  f:close()
+  return s
+end
+
+local function nkClean(s)
+  local r = string.gsub(tostring(s or ""), "[;%c]", " ")
+  return r
+end
+
+-- "{key = 'G', reformers = {'LShift'}}" -> "LShift+G"
+local function nkCombo(c)
+  local _, _, q, k = string.find(c, "key%s*=%s*(['\"])(.-)%1")
+  if k == nil or k == "" then return nil end
+  local out = {}
+  local _, _, r = string.find(c, "reformers%s*=%s*(%b{})")
+  if r then
+    for q2, m in string.gmatch(r, "(['\"])(.-)%1") do table.insert(out, m) end
+  end
+  table.insert(out, k)
+  return table.concat(out, "+")
+end
+
+-- the same from a diff table entry
+local function nkSpec(e)
+  if not (type(e) == "table") or e.key == nil then return "" end
+  local out = {}
+  if type(e.reformers) == "table" then
+    for _, m in ipairs(e.reformers) do table.insert(out, tostring(m)) end
+  end
+  table.insert(out, tostring(e.key))
+  return table.concat(out, "+")
+end
+
+local function nkDefaults(txt, out)
+  if txt == nil then return end
+  for line in string.gmatch(txt .. NK_NL, "(.-)" .. NK_NL) do
+    local _, _, q, name = string.find(line, "name%s*=%s*_%(%s*(['\"])(.-)%1")
+    if name and out[name] == nil then
+      local first = nil
+      local cs = string.find(line, "combos", 1, true)
+      if cs then
+        local a, b = string.find(line, "%b{}", cs)
+        if a then
+          for c in string.gmatch(string.sub(line, a + 1, b - 1), "%b{}") do
+            if first == nil then first = nkCombo(c) end
+          end
+        end
+      end
+      out[name] = first or ""
+    end
+  end
+end
+
+local function nkFind(name)
+  local low = string.lower(name)
+  local best, bestScore = nil, 0
+  for _, root in ipairs({lfs.currentdir(), lfs.writedir()}) do
+    local base = nkPath(root, "Mods/aircraft")
+    if lfs.attributes(base, "mode") == "directory" then
+      for d in lfs.dir(base) do
+        local inp = nkPath(nkPath(base, d), "Input")
+        if not (d == ".") and not (d == "..") and lfs.attributes(inp, "mode") == "directory" then
+          for e in lfs.dir(inp) do
+            local le = string.lower(e)
+            local score = 0
+            if le == low then
+              score = 1000
+            elseif string.len(le) >= 3 and string.sub(low, 1, string.len(le)) == le then
+              score = string.len(le)
+            end
+            local f = nkPath(nkPath(inp, e), "keyboard/default.lua")
+            if score > bestScore and lfs.attributes(f, "mode") == "file" then
+              best = f
+              bestScore = score
+            end
+          end
+        end
+      end
+    end
+  end
+  return best
+end
+
+local function nkBuild(name)
+  local def = {}
+  local file = nkFind(name)
+  local txt = file and nkRead(file)
+  nkDefaults(txt, def)
+  if txt then
+    for q, p in string.gmatch(txt, "external_profile%s*%(%s*(['\"])(.-)%1") do
+      nkDefaults(nkRead(nkPath(lfs.currentdir(), p)), def)
+    end
+  end
+  local mine = {}
+  for n, k in pairs(def) do mine[n] = k end
+  local dp = nkPath(lfs.writedir(), "Config/Input/" .. name .. "/keyboard/Keyboard.diff.lua")
+  local ok, d = pcall(dofile, dp)
+  local changed = 0
+  if ok and type(d) == "table" and type(d.keyDiffs) == "table" then
+    for id, e in pairs(d.keyDiffs) do
+      if type(e) == "table" and e.name then
+        local cur = mine[e.name] or ""
+        if type(e.removed) == "table" then
+          for _, r in pairs(e.removed) do
+            if nkSpec(r) == cur then cur = "" end
+          end
+        end
+        if type(e.added) == "table" then
+          for _, a in ipairs(e.added) do
+            cur = nkSpec(a)
+            break
+          end
+        end
+        if def[e.name] == nil then def[e.name] = "" end
+        mine[e.name] = cur
+        changed = changed + 1
+      end
+    end
+  end
+  local lines = {}
+  for n, k in pairs(def) do
+    local m = mine[n] or ""
+    if not (k == "" and m == "") then
+      local k2 = string.gsub(k, ";", "Semicolon")
+      local m2 = string.gsub(m, ";", "Semicolon")
+      table.insert(lines, nkClean(n) .. NK_TAB .. nkClean(k2) .. NK_TAB .. nkClean(m2))
+    end
+  end
+  -- pack into packets of about 1200 bytes
+  local packs = {}
+  local cur = {}
+  local size = 0
+  for _, l in ipairs(lines) do
+    if size + string.len(l) > 1200 and size > 0 then
+      table.insert(packs, table.concat(cur, NK_NL))
+      cur = {}
+      size = 0
+    end
+    table.insert(cur, l)
+    size = size + string.len(l) + 1
+  end
+  if size > 0 then table.insert(packs, table.concat(cur, NK_NL)) end
+  local info = (file and "found" or "nofile") .. "," .. tostring(changed)
+  return {packs = packs, info = info}
+end
+
+local function novaKeys(name)
+  if name == nil or name == "" or lfs == nil then return end
+  local c = novaKeyCache[name]
+  if c == nil then
+    c = nkBuild(name)
+    novaKeyCache[name] = c
+  end
+  local n = 0
+  for _ in ipairs(c.packs) do n = n + 1 end
+  for i, pk in ipairs(c.packs) do
+    novaUdp:sendto("N4;" .. nkClean(name) .. ";" .. i .. ";" .. n .. ";" .. c.info .. ";" .. pk, NOVA_IP, NOVA_PORT)
+  end
+end
+
 local function novaObjects(s)
   local w = nv(LoGetWorldObjects)
   if w == nil then return end
@@ -268,6 +445,10 @@ function LuaExportAfterNextFrame()
     if t >= novaNextPay then
       novaNextPay = t + 1
       pcall(novaPayload)
+    end
+    if t >= novaNextKeys then
+      novaNextKeys = t + 20
+      pcall(novaKeys, s.Name)
     end
   end
 end
