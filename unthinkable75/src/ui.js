@@ -425,6 +425,7 @@ window.U75 = {
   if (q.slot && openSlot(+q.slot)) { /* opened */ }
   if (q.mini === '1') window.U75.setMini(true);
   if (q.widget === '1') document.body.classList.add('widget');
+  if (q.full === '1') document.body.classList.add('full');
   render();
 })();
 })();

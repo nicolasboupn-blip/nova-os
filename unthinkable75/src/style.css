@@ -141,4 +141,4 @@ body.mini #mini{display:flex}
 @media(prefers-reduced-motion:reduce){.pulse{animation:none}}
 
 /* embedded as a NOVA home widget (?widget=1) */
-body.widget .closecard,body.widget [data-act=mini]{display:none}
+body.widget .closecard,body.widget [data-act=mini],body.full [data-act=mini],body.full .closecard{display:none}

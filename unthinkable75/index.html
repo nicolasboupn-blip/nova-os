@@ -158,7 +158,7 @@ body.mini #mini{display:flex}
 @media(prefers-reduced-motion:reduce){.pulse{animation:none}}
 
 /* embedded as a NOVA home widget (?widget=1) */
-body.widget .closecard,body.widget [data-act=mini]{display:none}
+body.widget .closecard,body.widget [data-act=mini],body.full [data-act=mini],body.full .closecard{display:none}
 
 </style>
 </head>
@@ -1480,6 +1480,7 @@ window.U75 = {
   if (q.slot && openSlot(+q.slot)) { /* opened */ }
   if (q.mini === '1') window.U75.setMini(true);
   if (q.widget === '1') document.body.classList.add('widget');
+  if (q.full === '1') document.body.classList.add('full');
   render();
 })();
 })();
