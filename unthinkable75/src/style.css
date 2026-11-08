@@ -139,3 +139,6 @@ body.mini #mini{display:flex}
 .game .right{display:flex;flex-direction:column;flex:1;min-height:0}
 @media(min-width:760px){.game .right{flex:none}}
 @media(prefers-reduced-motion:reduce){.pulse{animation:none}}
+
+/* embedded as a NOVA home widget (?widget=1) */
+body.widget .closecard,body.widget [data-act=mini]{display:none}

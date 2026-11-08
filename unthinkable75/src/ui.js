@@ -272,7 +272,7 @@ function renderSlots() {
     } else h += '<div class="btns"><button class="pri" data-act="new" data-id="' + n + '">New campaign</button></div>';
     h += '</div>';
   });
-  h += '<div class="slot"><button data-act="close" style="width:100%">Close</button></div></div>';
+  h += '<div class="slot closecard"><button data-act="close" style="width:100%">Close</button></div></div>';
   return h;
 }
 function renderSetup() {
@@ -424,6 +424,7 @@ window.U75 = {
   (location.search || '').replace(/^\?/, '').split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) q[p[0]] = decodeURIComponent(p[1] || ''); });
   if (q.slot && openSlot(+q.slot)) { /* opened */ }
   if (q.mini === '1') window.U75.setMini(true);
+  if (q.widget === '1') document.body.classList.add('widget');
   render();
 })();
 })();
