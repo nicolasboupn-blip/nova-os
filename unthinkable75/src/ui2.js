@@ -173,6 +173,7 @@ function draw() {
   function on(p) { return p[0] > X0 && p[0] < X1 && p[1] > Y0 && p[1] < Y1; }
   // fallout + rail cuts
   st.fallout.forEach(function (f) { var p = w2s(f.x, f.y); ctx.beginPath(); ctx.arc(p[0], p[1], f.r * z, 0, 7); ctx.fillStyle = 'rgba(190,220,60,.16)'; ctx.fill(); ctx.strokeStyle = 'rgba(210,240,70,.6)'; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]); });
+  (st.mines || []).forEach(function (m) { if (m.s !== side && !m.rev) return; var p = w2s(m.x, m.y), rm = m.r * z; if (p[0] < -rm || p[1] < -rm || p[0] > cw + rm || p[1] > ch + rm) return; ctx.beginPath(); ctx.arc(p[0], p[1], rm, 0, 7); ctx.fillStyle = 'rgba(255,170,60,.08)'; ctx.fill(); ctx.setLineDash([2, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(255,170,60,.75)'; ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,170,60,.9)'; ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✕', p[0], p[1]); });
   st.cuts.forEach(function (c) { var p = w2s(c.x, c.y); ctx.strokeStyle = '#ff6b5b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p[0] - 5, p[1] - 5); ctx.lineTo(p[0] + 5, p[1] + 5); ctx.moveTo(p[0] + 5, p[1] - 5); ctx.lineTo(p[0] - 5, p[1] + 5); ctx.stroke(); });
   // air-defence coverage circles (yours always, enemy only once identified)
   if (z > 0.12) {
@@ -270,6 +271,8 @@ function draw() {
     drawUnitIcon(ctx, 0, 0, u, SIDE_COL[side], { bar: u.str, sel: sel, fly: airborne(u), fade: u.broken });
     ctx.restore();
     if (u.broken) { ctx.fillStyle = '#ff6b5b'; ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('!', p[0] + 12, p[1] - 9); }
+    if (u.riders && u.riders.length) { ctx.fillStyle = '#f2b84b'; ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('▣' + u.riders.length, p[0] - 13, p[1] - 9); }
+    if (u.hidden) { ctx.fillStyle = '#9ad0ff'; ctx.font = 'bold 9px system-ui'; ctx.textAlign = 'center'; ctx.fillText('AMB', p[0], p[1] + 20); }
     if (sel) { ctx.beginPath(); ctx.arc(p[0], p[1], 17, 0, 7); ctx.strokeStyle = '#f2b84b'; ctx.lineWidth = 2; ctx.stroke(); }
   });
   // air selected: range ring + stacked airfield selection ring
@@ -316,7 +319,7 @@ function pickAt(sx, sy) {
 /* ---------- order picking ---------- */
 var PICKTXT = { move: 'Tap the map: where should it go?', amove: 'Tap the map: attack-move there (fights anything on the way).', hunt: 'Tap an enemy contact (identified or ?) to hunt it down.', cas: 'Tap an enemy contact or a spot for the ground attack.',
   strike: 'Tap an enemy city or airfield to bomb, or any spot.', cut: 'Tap a railway line to cut it with a strike.', recon: 'Tap the map: recon flight to there.', loiter: 'Tap the map: aircraft circle there and keep hitting enemy ground units in the area until low on fuel.', cap: 'Tap the map: combat air patrol over there.', awacs: 'Tap the map: AWACS station.',
-  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', bombard: 'Tap the enemy position to shell (the ship sails to within gun range).', sealift1: 'Tap the ground unit to load (near the coast).', sealift2: 'Tap the landing spot on the coast.', nuke: 'Tap the target for the strike.', fire: 'Tap the spot to shell. Red ring = gun range; the battery moves into range first.' };
+  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', bombard: 'Tap the enemy position to shell (the ship sails to within gun range).', sealift1: 'Tap the ground unit to load (near the coast).', sealift2: 'Tap the landing spot on the coast.', board: 'Tap your carrier (APC / BTR unit or truck convoy) to climb aboard.', merge: 'Tap another unit of the same type to merge into it.', mine: 'Tap where the engineers should lay a minefield.', nuke: 'Tap the target for the strike.', fire: 'Tap the spot to shell. Red ring = gun range; the battery moves into range first.' };
 function startPick(kind, extra) { app.pick = { kind: kind }; if (extra) for (var k in extra) app.pick[k] = extra[k]; paintBanner(); }
 function endPick() { app.pick = null; app.addStop = false; paintBanner(); renderDock(true); }
 function issue(cmd) {
@@ -331,6 +334,8 @@ function handlePick(sx, sy) {
     if (st.deploy) { var any = false; app.sel.forEach(function (id) { if (W.deployMove(st, id, w.x, w.y)) any = true; }); if (!any) toast('Place units on your own territory (aircraft: use BASE AT).'); else ok = true; }
     else { if (!W.isLand(w.x, w.y) && !app.sel.some(function (id) { var u = W.unitById(st, id); return u && (W.isHeli(u) || U[u.type].naval); })) { toast('That is water.'); return; } ok = issue({ k: k, x: w.x, y: w.y }); }
   } else if (k === 'hunt') { var c = first('k'); if (!c) { toast('No contact there.'); return; } ok = issue({ k: 'hunt', cid: c.id }); }
+  else if (k === 'board' || k === 'merge') { var tu = first('u'), tun = tu && W.unitById(st, tu.id); if (!tun || app.sel.indexOf(tun.id) >= 0) { toast(k === 'board' ? 'Tap one of your carriers (APC / BTR / truck convoy).' : 'Tap another unit of the same type.'); return; } ok = issue({ k: k, uid: tun.id }); }
+  else if (k === 'mine') { if (!W.isLand(w.x, w.y)) { toast('That is water.'); return; } ok = issue({ k: 'mine', x: w.x, y: w.y }); }
   else if (k === 'bombard') ok = issue({ k: 'bombard', x: w.x, y: w.y });
   else if (k === 'fire') { var cf = first('k'); ok = issue({ k: 'fire', x: cf ? st.con[st.side][cf.id].x : w.x, y: cf ? st.con[st.side][cf.id].y : w.y, mins: app.fireM || 0 }); }
   else if (k === 'sealift1') { var u2 = first('u'); var su2 = u2 && W.unitById(st, u2.id); if (!su2 || !U[su2.type].ground || U[su2.type].heli || U[su2.type].naval || U[su2.type].cls === 'train') { toast('Tap one of your ground units near the coast.'); return; } p.uid = su2.id; p.kind = 'sealift2'; paintBanner(); return; }
@@ -386,7 +391,7 @@ function orderText(u) {
   var o = u.orders && u.orders[0], st = app.st; if (U[u.type].air && u.state === 'base') return o ? 'ready: ' + o.k : 'on the ground';
   if (u.broken) return 'broken, falling back'; if (!o) return U[u.type].air || U[u.type].heli ? (u.state === 'fly' ? 'returning' : 'landed') : (u.dig >= 1 ? 'dug in' : u.dig > 0 ? 'digging in' : 'idle');
   var n = u.orders.length > 1 ? ' +' + (u.orders.length - 1) : '';
-  var m = { move: 'moving', amove: 'attack-move', hunt: 'hunting', hold: 'holding', dig: 'digging in', wait: 'waiting', haul: 'hauling', cas: 'ground attack', strike: 'strike', recon: 'recon', cap: 'patrol', loiter: 'circling & attacking', awacs: 'AWACS', rtb: 'returning', land: 'landing', lift: 'air assault', bombard: 'shelling', airstrike: 'air strike' };
+  var m = { move: 'moving', amove: 'attack-move', hunt: 'hunting', hold: 'holding', dig: 'digging in', wait: 'waiting', haul: 'hauling', cas: 'ground attack', strike: 'strike', recon: 'recon', cap: 'patrol', loiter: 'circling & attacking', awacs: 'AWACS', rtb: 'returning', land: 'landing', lift: 'air assault', bombard: 'shelling', airstrike: 'air strike', board: 'boarding', unload: 'unloading', ambush: u.hidden ? 'hidden in ambush' : 'setting an ambush', mine: 'heading to lay mines', laying: 'laying mines', repair: 'repairing nearby units', merge: 'merging' };
   return (m[o.k] || o.k) + n;
 }
 function chip(a, label, extra, on) { return '<button data-a="' + a + '"' + (on ? ' class="on"' : '') + (extra ? ' ' + extra : '') + '>' + label + '</button>'; }
@@ -495,7 +500,7 @@ function unitHead(su) {
   var h = '';
   if (su.length === 1) {
     var u = su[0], d = U[u.type];
-    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + '</div><div class="bars">' +
+    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + (u.riders && u.riders.length ? '<div class="s">Carrying: ' + u.riders.map(function (id) { var r = W.unitById(app.st, id); return r ? esc(U[r.type].n.split(' (')[0]) : ''; }).join(', ') + '</div>' : (d.carry ? '<div class="s">Carrier: holds ' + d.carry + ' infantry unit. Infantry: BOARD, then tap this unit.</div>' : '')) + '</div><div class="bars">' +
       '<span>STR</span>' + bar(u.str, u.str > 60 ? '' : u.str > 30 ? 'w' : 'r') + '<span>SUPPLY</span>' + bar(u.sup, u.sup > 40 ? '' : u.sup > 15 ? 'w' : 'r') + '<span>MORALE</span>' + bar(u.mor, u.mor > 50 ? '' : u.mor > 25 ? 'w' : 'r') + (d.air ? '<span>FUEL</span>' + bar(u.fuel / (d.rad * 2) * 100, 'c') : '') + (d.msl ? '<span>' + esc(d.mname || 'MISSILES').toUpperCase() + ' ' + Math.floor(u.msl) + '/' + d.msl + '</span>' + bar(u.msl / d.msl * 100, u.msl >= 1 ? 'c' : 'r') : '') + '</div></div>';
   } else {
     var types = {}; su.forEach(function (u) { types[U[u.type].n] = (types[U[u.type].n] || 0) + 1; });
@@ -603,9 +608,44 @@ function uHist(su) {
   if (su.length > 1) h += '<div class="dim">Showing the first of ' + su.length + ' selected units.</div>';
   return h;
 }
+/* Simple mode (default): the few buttons that matter for this selection. "All options" brings back the full tabs. */
+function uSimple(su, g) {
+  var st = app.st, h = '', u = su[0];
+  if (st.deploy) return uMove(su, g);
+  var any = function (f) { return su.some(f); };
+  var foot = any(function (x) { return U[x.type].foot; }), carry = any(function (x) { return U[x.type].carry; }), eng = any(function (x) { return U[x.type].cls === 'eng'; }), aboard = 0;
+  su.forEach(function (x) { aboard += (x.riders || []).length; });
+  var fighter = any(function (x) { var d = U[x.type]; return d.ground && !d.heli && d.a > 0 && (d.cls === 'gnd' || d.cls === 'recon'); });
+  h += hint('Tap a button, then tap the map. <b>Tip:</b> long-press the map to send the selected units there.');
+  h += '<div class="chips">';
+  if (g.gnd || g.log) h += chip('pick:move', '➡ MOVE');
+  if (g.nav) h += chip('pick:move', '⚓ SAIL TO');
+  if (g.heli) h += chip('pick:move', '🚁 FLY TO');
+  if (g.air) h += chip('pick:land', '🛬 LAND AT');
+  if (g.atk || g.nav) h += chip('pick:amove', '⚔ ATTACK');
+  if (g.arty || g.ssm) h += chip('pick:fire', '💥 FIRE') + chip('cease', '⛔ CEASE FIRE');
+  if (g.air || g.heli) h += (g.roles.cas ? chip('pick:cas', '💣 ATTACK') : '') + (g.roles.cap ? chip('pick:cap', '🛡 PATROL') : '') + (g.roles.strike ? chip('pick:strike', '🏭 STRIKE') : '') + (g.roles.recon ? chip('pick:recon', '🔍 RECON') : '') + (g.roles.awacs ? chip('pick:awacs', '📡 AWACS') : '');
+  if (g.log) h += chip('pick:haul1', '🚚 HAUL SUPPLIES');
+  if (g.gnd && fighter) h += chip('do:dig', '⛏ DIG IN') + chip('do:ambush', '🕶 AMBUSH');
+  if (g.gnd || g.nav) h += chip('do:hold', '✋ HOLD');
+  h += '</div>';
+  var sp = '';
+  if (foot) sp += chip('pick:board', '🚌 BOARD CARRIER');
+  if (carry) sp += chip('do:unload', '⬇ UNLOAD' + (aboard ? ' (' + aboard + ')' : ''));
+  if (g.gnd && !g.log) sp += chip('pick:merge', '🔗 MERGE');
+  if (eng) sp += chip('do:mine', '⛓ MINES HERE') + chip('pick:mine', '⛓ MINES AT…') + chip('do:repair', '🔧 REPAIR NEARBY');
+  if (g.heli && any(function (x) { return U[x.type].lift; })) sp += chip('pick:lift1', '🚁 LIFT TROOPS');
+  if (g.nv.some(function (d) { return d.lift; })) sp += chip('pick:sealift1', '🚢 SEALIFT TROOPS');
+  if (sp) h += '<div class="lbl">Special</div><div class="chips">' + sp + '</div>';
+  h += '<div class="chips">' + chip('stop', '➕ ADD STOP', '', app.addStop) + chip('clear', '✖ CLEAR ORDERS') + chip('simple:0', '⚙ ALL OPTIONS') + '</div>';
+  if (app.addStop) h += '<div class="note good">ADD STOP is on: every target you pick is added to the route instead of replacing it.</div>';
+  if (u && u.orders.length) { h += '<div class="lbl">Route</div>' + routeList(u); }
+  return h;
+}
 function panelUnit() {
   var su = selUnits(); app.sel = su.map(function (u) { return u.id; }); if (!su.length) return '';
   var g = groupKinds(su), h = unitHead(su) + pickBanner();
+  if (app.simple !== false) return h + uSimple(su, g);
   var t = app.utab || 'move';
   h += t === 'atk' ? uAtk(su, g) : t === 'trk' ? uTrk(su) : t === 'task' ? uTask(su, g) : t === 'hist' ? uHist(su) : uMove(su, g);
   return h;
@@ -718,7 +758,7 @@ function renderDock(force) {
   var st = app.st; if (!st || app.screen !== 'game') return; var tb = $('tabs'), bd = $('body'), dk = $('dock'); if (!tb) return;
   dk.className = 'dock h' + app.dock;
   var um = unitMode();
-  var tabs = um ? UTABS.map(function (t) { return '<button data-a="utab:' + t[0] + '" class="' + ((app.utab || 'move') === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '<button class="x" data-a="selnone">✕</button><button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>' : TABS.map(function (t) { var flag = (t[0] === 'esc' && st.esc >= 3) || (t[0] === 'pol' && st.pol[st.side].coh < 35); return '<button data-a="tab:' + t[0] + '" class="' + (app.tab === t[0] ? 'on' : '') + '">' + t[1] + (flag ? ' <i>!</i>' : '') + '</button>'; }).join('') + '<button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>';
+  var tabs = um && app.simple !== false ? '<button class="on" data-a="utab:move">Orders</button><button data-a="simple:0">All options</button><button class="x" data-a="selnone">✕</button><button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>' : um ? '<button data-a="simple:1">◂ Simple</button>' + UTABS.map(function (t) { return '<button data-a="utab:' + t[0] + '" class="' + ((app.utab || 'move') === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '<button class="x" data-a="selnone">✕</button><button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>' : TABS.map(function (t) { var flag = (t[0] === 'esc' && st.esc >= 3) || (t[0] === 'pol' && st.pol[st.side].coh < 35); return '<button data-a="tab:' + t[0] + '" class="' + (app.tab === t[0] ? 'on' : '') + '">' + t[1] + (flag ? ' <i>!</i>' : '') + '</button>'; }).join('') + '<button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>';
   if (tabs !== lastTabs) { tb.innerHTML = tabs; lastTabs = tabs; }
   if (app.dock === 0) return;
   var html = um ? panelUnit() : PANELS[app.tab](); if (!force && html === lastDock) return;
@@ -769,6 +809,7 @@ document.addEventListener('click', function (ev) {
     case 'ap': st.set.pause[arg] = !st.set.pause[arg]; renderDock(true); return;
     case 'layer': app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
     case 'utab': app.utab = arg; renderDock(true); return;
+    case 'simple': app.simple = arg === '1'; renderDock(true); return;
     case 'cease': issue({ k: 'hold' }); renderDock(true); return;
     case 'firem': app.fireM = !app.fireM ? 30 : app.fireM === 30 ? 120 : 0; renderDock(true); return;
     case 'trail': app.showTrail = app.showTrail === false; renderDock(true); return;
