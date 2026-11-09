@@ -580,16 +580,16 @@ function checkCmd(st, u, d, cmd) {
   if (d.air) {
     if (u.broken) return '';
     if (k === 'land' || k === 'rtb') return '';
-    if (['cas', 'strike', 'recon', 'cap', 'awacs'].indexOf(k) < 0) return 'Aircraft take mission orders: ground attack, strike, patrol, recon, or land.';
-    if ((d.roles || []).indexOf(k) < 0 && !(k === 'cap' && (d.roles || []).indexOf('cap') >= 0)) return d.n + ' cannot fly that mission.';
+    if (['cas', 'strike', 'recon', 'cap', 'awacs', 'loiter'].indexOf(k) < 0) return 'Aircraft take mission orders: ground attack, strike, patrol, recon, or land.';
+    if ((d.roles || []).indexOf(k === 'loiter' ? 'cas' : k) < 0 && !(k === 'cap' && (d.roles || []).indexOf('cap') >= 0)) return d.n + ' cannot fly that mission.';
     var rt = routeLen(u, cmd), back = 1e9, rangeEff = d.rad * rangeBonus(st, u);
     for (var i = 0; i < MAP.air.length; i++) if (st.ad[i].o === u.side) { var dd = dist(rt.x, rt.y, MAP.air[i][2], MAP.air[i][3]); if (dd < back) back = dd; }
     if (rt.L + back > rangeEff * 1.8 + (u.fuel > 0 && u.state === 'fly' ? 0 : 0)) return 'Out of range: needs a closer airfield or tanker support.';
     return '';
   }
   if (d.heli) {
-    if (['move', 'amove', 'land', 'hold', 'cas', 'lift'].indexOf(k) < 0) return 'Helicopters fly to a point, attack, or lift troops.';
-    if (k === 'cas' && !d.a2g) return 'Not an attack helicopter.';
+    if (['move', 'amove', 'land', 'hold', 'cas', 'lift', 'loiter'].indexOf(k) < 0) return 'Helicopters fly to a point, attack, or lift troops.';
+    if ((k === 'cas' || k === 'loiter') && !d.a2g) return 'Not an attack helicopter.';
     if (k === 'lift' && !d.lift) return 'Not a transport helicopter.';
     return '';
   }
@@ -666,7 +666,7 @@ function followPath(u, dkm) {
   return !(u.path && u.path.length);
 }
 
-var ORBIT = { cap: 22, awacs: 30 };
+var ORBIT = { cap: 22, awacs: 30, loiter: 18, loiterHeli: 9 };
 function placeName(x, y) {
   var b = -1, bd = 1e9; for (var i = 0; i < MAP.cities.length; i++) { var dd = dist(x, y, MAP.cities[i][1], MAP.cities[i][2]); if (dd < bd) { bd = dd; b = i; } }
   if (b < 0) return 'somewhere'; return bd < 6 ? MAP.cities[b][0] : 'near ' + MAP.cities[b][0] + ' (' + Math.round(bd) + ' km ' + dirWord(MAP.cities[b][1], MAP.cities[b][2], x, y) + ')';
@@ -677,7 +677,7 @@ function uhist(st, u, m) {
   if (last && last.m.slice(0, 14) === m.slice(0, 14) && st.t - last.t < 40) { last.m = m; last.t = st.t; return; }
   u.hist.push({ t: st.t, m: m }); if (u.hist.length > 50) u.hist.shift();
 }
-function orderWord(o) { return ({ move: 'Move', amove: 'Attack-move', hunt: 'Hunt', hold: 'Hold', dig: 'Dig in', haul: 'Haul supplies', cas: 'Ground attack', strike: 'Strike', recon: 'Recon', cap: 'Patrol', awacs: 'AWACS station', land: 'Land', lift: 'Lift troops', bombard: 'Bombard', airstrike: 'Carrier strike', fire: 'Artillery barrage', wait: 'Wait' })[o.k] || o.k; }
+function orderWord(o) { return ({ move: 'Move', amove: 'Attack-move', hunt: 'Hunt', hold: 'Hold', dig: 'Dig in', haul: 'Haul supplies', cas: 'Ground attack', strike: 'Strike', recon: 'Recon', loiter: 'Circle & attack', cap: 'Patrol', awacs: 'AWACS station', land: 'Land', lift: 'Lift troops', bombard: 'Bombard', airstrike: 'Carrier strike', fire: 'Artillery barrage', wait: 'Wait' })[o.k] || o.k; }
 function artyFire(st, u, o, dt) {
   var d = U[u.type], R = d.rng * 0.9, dd = dist(u.x, u.y, o.x, o.y);
   if (dd > R) {
@@ -687,14 +687,20 @@ function artyFire(st, u, o, dt) {
   u.path = null;
   if (d.cls === 'ssm') { missileFire(st, u, o, dt); return; }
   if (u.sup < 10) { uhist(st, u, 'Out of ammunition, barrage stopped.'); u.orders.shift(); ev(st, 'idle', d.n + ' is out of shells.', u.x, u.y); return; }
-  o.left = (o.left == null ? (o.mins || 90) : o.left) - dt; o.acc = (o.acc || 0) + dt;
+  if (o.mins) o.left = (o.left == null ? o.mins : o.left) - dt; o.acc = (o.acc || 0) + dt;
+  if (taken(st, u, o)) { u.orders.shift(); uhist(st, u, 'Target area taken, ceasing fire.'); ev(st, 'idle', d.n + ': target area taken, firing stopped.', u.x, u.y); return; }
   if (!o.began) { o.began = 1; uhist(st, u, 'Opened fire: ' + placeName(o.x, o.y) + '.'); }
   while (o.acc >= 6) { o.acc -= 6; volley(st, u, o); }
-  if (o.left <= 0) { u.orders.shift(); uhist(st, u, 'Barrage finished (' + (o.vol || 0) + ' volleys).'); ev(st, 'idle', d.n + ' finished its barrage.', u.x, u.y); }
+  if (o.mins && o.left <= 0) { u.orders.shift(); uhist(st, u, 'Barrage finished (' + (o.vol || 0) + ' volleys).'); ev(st, 'idle', d.n + ' finished its barrage.', u.x, u.y); }
+}
+// a barrage ends once your own ground troops stand on the target (no friendly fire)
+function taken(st, u, o) {
+  return st.units.some(function (f) { return f.side === u.side && f.id !== u.id && f.str > 0 && !f.cargoed && U[f.type].ground && !U[f.type].heli && U[f.type].cls !== 'arty' && U[f.type].cls !== 'ssm' && U[f.type].cls !== 'aa' && dist(f.x, f.y, o.x, o.y) < 3.5; });
 }
 function missileFire(st, u, o, dt) {
   var d = U[u.type];
-  o.left = (o.left == null ? (o.mins || 90) : o.left) - dt; o.acc = (o.acc || 0) + dt;
+  if (o.mins) o.left = (o.left == null ? o.mins : o.left) - dt; o.acc = (o.acc || 0) + dt;
+  if (taken(st, u, o)) { u.orders.shift(); uhist(st, u, 'Target area taken, ceasing fire.'); ev(st, 'idle', d.n + ': target area taken, firing stopped.', u.x, u.y); return; }
   if (!o.began) { o.began = 1; uhist(st, u, 'Conventional missile strike ordered: ' + placeName(o.x, o.y) + '.'); }
   while (o.acc >= 8 && u.msl >= 1) {
     o.acc -= 8; u.msl -= 1; u.bt = 30; o.vol = (o.vol || 0) + 1;
@@ -713,7 +719,7 @@ function missileFire(st, u, o, dt) {
     uhist(st, u, 'Fired a ' + d.mname + ' (' + hit + ' unit' + (hit === 1 ? '' : 's') + ' hit, ' + Math.floor(u.msl) + ' left).');
   }
   if (u.msl < 1) { uhist(st, u, 'Out of missiles.'); u.orders.shift(); ev(st, 'idle', d.n + ' is out of missiles.', u.x, u.y); return; }
-  if (o.left <= 0) { u.orders.shift(); ev(st, 'idle', d.n + ' finished its strike.', u.x, u.y); }
+  if (o.mins && o.left <= 0) { u.orders.shift(); ev(st, 'idle', d.n + ' finished its strike.', u.x, u.y); }
 }
 function volley(st, u, o) {
   var d = U[u.type], n = d.rng > 20 ? 4 : 3; o.vol = (o.vol || 0) + 1; u.sup = Math.max(0, u.sup - 0.22); u.bt = 30;
@@ -1191,6 +1197,20 @@ function landAt(st, u, spot) {
   else { u.state = 'land'; }
   u.str = Math.min(100, u.str + 4);
 }
+function loiterAttack(st, u, o, cx, cy, R, dt) {
+  var d = U[u.type], hits = 0, ps = d.a2g * (u.str / 100) * 0.16;
+  if (ps <= 0) return;
+  st.units.forEach(function (e) {
+    if (e.side === u.side || e.str <= 0 || e.cargoed) return; var ed = U[e.type]; if (!ed.ground && !ed.naval) return; if (ed.naval && ed.sub) return;
+    if (ed.air || ed.heli) return; if (dist(e.x, e.y, cx, cy) > R) return;
+    var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'arty' || ed.cls === 'ssm' || ed.cls === 'aa') ? 1.6 : 1;
+    var dm = ps * dt * soft * rr(st, 0.6, 1.4) / (ed.d * (e.dig > 0 ? 1 + 0.3 * e.dig : 1) + 2);
+    e.str -= dm; e.mor -= dm * 0.7; e.bt = 40; hits++;
+    if (e.side === st.side && !(o.alerted > st.t)) { o.alerted = st.t + 60; ev(st, 'battle', ed.n + ' is under air attack', e.x, e.y); }
+    if (e.str <= 6) { u.kills = (u.kills || 0) + 1; uhist(st, u, 'Destroyed ' + ed.n + ' from the air.'); killUnit(st, e, u.side); }
+  });
+  if (hits) o.hits = (o.hits || 0) + 1;
+}
 function airStep(st, dt) {
   st.units.forEach(function (u) {
     var d = U[u.type]; if ((!d.air && !d.heli) || u.str <= 0 || u.cargoed) return;
@@ -1219,15 +1239,17 @@ function airStep(st, dt) {
     } else if (o.k === 'cas' && o.cid != null) {
       var cc = st.con[u.side][o.cid]; if (cc) { tx = cc.x; ty = cc.y; } else { tx = o.x; ty = o.y; }
     }
-    if (o.k === 'cap' || o.k === 'awacs') {
-      var OR = ORBIT[o.k];
+    if (o.k === 'cap' || o.k === 'awacs' || o.k === 'loiter') {
+      var OR = o.k === 'loiter' ? (d.heli ? ORBIT.loiterHeli : ORBIT.loiter) : ORBIT[o.k];
       if (!o.arr) {
         var dd0 = dist(u.x, u.y, tx, ty);
         if (dd0 > spd + OR) { u.x += (tx - u.x) / dd0 * spd; u.y += (ty - u.y) / dd0 * spd; u.fuel -= spd; return; }
-        o.arr = 1; o.ang = Math.atan2(u.y - ty, u.x - tx);
+        o.arr = 1; o.ang = Math.atan2(u.y - ty, u.x - tx); if (o.k === 'loiter') uhist(st, u, 'Circling ' + placeName(tx, ty) + ', attacking everything in the area.');
       }
       o.ang += spd * 0.7 / OR; u.x = tx + OR * Math.cos(o.ang); u.y = ty + OR * Math.sin(o.ang);
-      o.left = (o.left == null ? o.h * 60 : o.left) - dt; u.fuel -= spd * 0.6; if (o.left <= 0) u.orders.shift(); return;
+      if (o.k === 'loiter') loiterAttack(st, u, o, tx, ty, OR + 4, dt);
+      if (o.k !== 'loiter' || o.h) { o.left = (o.left == null ? o.h * 60 : o.left) - dt; if (o.left <= 0) u.orders.shift(); }
+      u.fuel -= spd * 0.6; return;
     }
     var dd = dist(u.x, u.y, tx, ty);
     if (dd > spd) { u.x += (tx - u.x) / dd * spd; u.y += (ty - u.y) / dd * spd; u.fuel -= spd; }

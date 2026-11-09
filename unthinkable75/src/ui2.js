@@ -159,9 +159,9 @@ function orderPts(u) {
   return pts;
 }
 var OMETA = { move: { c: '#7fd0ff', l: 'MOVE HERE', s: 'flag', dash: [1, 0] }, amove: { c: '#ff9f5b', l: 'ATTACK-MOVE', s: 'chev' }, hunt: { c: '#ff5b4a', l: 'HUNT', s: 'cross' }, cas: { c: '#ff5b4a', l: 'GROUND ATTACK', s: 'cross' }, strike: { c: '#ffd24a', l: 'AIR STRIKE', s: 'cross' }, airstrike: { c: '#ffd24a', l: 'CARRIER STRIKE', s: 'cross' },
-  fire: { c: '#ff4a3a', l: 'ARTILLERY BARRAGE', s: 'cross' }, bombard: { c: '#ff9f5b', l: 'SHIP BOMBARDMENT', s: 'cross' }, cap: { c: '#6fd08c', l: 'PATROL (CIRCLES HERE)', s: 'orbit' }, awacs: { c: '#6fd08c', l: 'AWACS ORBIT', s: 'orbit' }, recon: { c: '#b7b7ff', l: 'RECON', s: 'dot' },
+  fire: { c: '#ff4a3a', l: 'ARTILLERY BARRAGE', s: 'cross' }, bombard: { c: '#ff9f5b', l: 'SHIP BOMBARDMENT', s: 'cross' }, cap: { c: '#6fd08c', l: 'PATROL (CIRCLES HERE)', s: 'orbit' }, loiter: { c: '#ff9f5b', l: 'CIRCLE & ATTACK (KEEPS HITTING)', s: 'orbit' }, awacs: { c: '#6fd08c', l: 'AWACS ORBIT', s: 'orbit' }, recon: { c: '#b7b7ff', l: 'RECON', s: 'dot' },
   haul: { c: '#f2b84b', l: 'SUPPLY RUN', s: 'dot' }, lift: { c: '#7fd0ff', l: 'LIFT / DROP', s: 'dot' }, land: { c: '#aaaaaa', l: 'LAND HERE', s: 'flag' }, rtb: { c: '#aaaaaa', l: 'RETURN', s: 'flag' } };
-var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
+var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', loiter: '#ff9f5b', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
 function draw() {
   var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (geo.stRef !== st) { geo.stRef = st; W.refreshBloc(st); }
@@ -227,7 +227,7 @@ function draw() {
       var ang = Math.atan2(b[1] - a[1], b[0] - a[0]), L = Math.hypot(b[0] - a[0], b[1] - a[1]);
       if (L > 26) { var mx = a[0] + (b[0] - a[0]) * 0.55, my = a[1] + (b[1] - a[1]) * 0.55; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(mx + Math.cos(ang) * 6, my + Math.sin(ang) * 6); ctx.lineTo(mx + Math.cos(ang + 2.5) * 6, my + Math.sin(ang + 2.5) * 6); ctx.lineTo(mx + Math.cos(ang - 2.5) * 6, my + Math.sin(ang - 2.5) * 6); ctx.closePath(); ctx.fill(); }
       // area markers: patrol circle, barrage zone
-      if (q.k === 'cap' || q.k === 'awacs') { var R = W.ORBIT[q.k] * z; ctx.beginPath(); ctx.arc(b[0], b[1], R, 0, 7); ctx.fillStyle = 'rgba(111,208,140,.10)'; ctx.fill(); ctx.setLineDash([2, 5]); ctx.lineWidth = 2.4; ctx.strokeStyle = col; ctx.stroke(); ctx.setLineDash([]); for (var k2 = 0; k2 < 3; k2++) { var aa = (Date.now() / 1400 + k2 * 2.09) % 6.283; ctx.beginPath(); ctx.arc(b[0] + Math.cos(aa) * R, b[1] + Math.sin(aa) * R, 3.2, 0, 7); ctx.fillStyle = col; ctx.fill(); } }
+      if (q.k === 'cap' || q.k === 'awacs' || q.k === 'loiter') { var R = (q.k === 'loiter' ? (U[u.type].heli ? W.ORBIT.loiterHeli : W.ORBIT.loiter) : W.ORBIT[q.k]) * z; ctx.beginPath(); ctx.arc(b[0], b[1], R, 0, 7); ctx.fillStyle = 'rgba(111,208,140,.10)'; ctx.fill(); ctx.setLineDash([2, 5]); ctx.lineWidth = 2.4; ctx.strokeStyle = col; ctx.stroke(); ctx.setLineDash([]); for (var k2 = 0; k2 < 3; k2++) { var aa = (Date.now() / 1400 + k2 * 2.09) % 6.283; ctx.beginPath(); ctx.arc(b[0] + Math.cos(aa) * R, b[1] + Math.sin(aa) * R, 3.2, 0, 7); ctx.fillStyle = col; ctx.fill(); } }
       if (q.k === 'fire') { var Rz = Math.max(7, 3.6 * z); ctx.beginPath(); ctx.arc(b[0], b[1], Rz, 0, 7); ctx.fillStyle = 'rgba(255,60,50,.18)'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke(); }
       if (q.k === 'fire' && qi === 0) { ctx.beginPath(); ctx.arc(a[0], a[1], d.rng * z, 0, 7); ctx.strokeStyle = 'rgba(255,90,70,.55)'; ctx.setLineDash([3, 6]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
       // marker shape
@@ -269,7 +269,7 @@ function draw() {
   // air selected: range ring + stacked airfield selection ring
   if (app.pick && app.sel.length) {
     var u0 = W.unitById(st, app.sel[0]);
-    if (u0 && (U[u0.type].air || U[u0.type].heli) && ['cas', 'strike', 'cut', 'recon', 'cap', 'awacs', 'move', 'lift2'].indexOf(app.pick.kind) >= 0) {
+    if (u0 && (U[u0.type].air || U[u0.type].heli) && ['cas', 'strike', 'cut', 'recon', 'cap', 'awacs', 'loiter', 'move', 'lift2'].indexOf(app.pick.kind) >= 0) {
       var d0 = U[u0.type], bx = u0.base != null ? M.air[u0.base][2] : u0.x, by = u0.base != null ? M.air[u0.base][3] : u0.y, pp = w2s(bx, by);
       ctx.beginPath(); ctx.arc(pp[0], pp[1], d0.rad * W.rangeBonus(st, u0) * z, 0, 7); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([2, 6]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
     }
@@ -309,7 +309,7 @@ function pickAt(sx, sy) {
 
 /* ---------- order picking ---------- */
 var PICKTXT = { move: 'Tap the map: where should it go?', amove: 'Tap the map: attack-move there (fights anything on the way).', hunt: 'Tap an enemy contact (identified or ?) to hunt it down.', cas: 'Tap an enemy contact or a spot for the ground attack.',
-  strike: 'Tap an enemy city or airfield to bomb, or any spot.', cut: 'Tap a railway line to cut it with a strike.', recon: 'Tap the map: recon flight to there.', cap: 'Tap the map: combat air patrol over there.', awacs: 'Tap the map: AWACS station.',
+  strike: 'Tap an enemy city or airfield to bomb, or any spot.', cut: 'Tap a railway line to cut it with a strike.', recon: 'Tap the map: recon flight to there.', loiter: 'Tap the map: aircraft circle there and keep hitting enemy ground units in the area until low on fuel.', cap: 'Tap the map: combat air patrol over there.', awacs: 'Tap the map: AWACS station.',
   land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', bombard: 'Tap the enemy position to shell (the ship sails to within gun range).', sealift1: 'Tap the ground unit to load (near the coast).', sealift2: 'Tap the landing spot on the coast.', nuke: 'Tap the target for the strike.', fire: 'Tap the spot to shell. Red ring = gun range; the battery moves into range first.' };
 function startPick(kind, extra) { app.pick = { kind: kind }; if (extra) for (var k in extra) app.pick[k] = extra[k]; paintBanner(); }
 function endPick() { app.pick = null; app.addStop = false; paintBanner(); renderDock(true); }
@@ -326,7 +326,7 @@ function handlePick(sx, sy) {
     else { if (!W.isLand(w.x, w.y) && !app.sel.some(function (id) { var u = W.unitById(st, id); return u && (W.isHeli(u) || U[u.type].naval); })) { toast('That is water.'); return; } ok = issue({ k: k, x: w.x, y: w.y }); }
   } else if (k === 'hunt') { var c = first('k'); if (!c) { toast('No contact there.'); return; } ok = issue({ k: 'hunt', cid: c.id }); }
   else if (k === 'bombard') ok = issue({ k: 'bombard', x: w.x, y: w.y });
-  else if (k === 'fire') { var cf = first('k'); ok = issue({ k: 'fire', x: cf ? st.con[st.side][cf.id].x : w.x, y: cf ? st.con[st.side][cf.id].y : w.y, mins: app.fireM || 60 }); }
+  else if (k === 'fire') { var cf = first('k'); ok = issue({ k: 'fire', x: cf ? st.con[st.side][cf.id].x : w.x, y: cf ? st.con[st.side][cf.id].y : w.y, mins: app.fireM || 0 }); }
   else if (k === 'sealift1') { var u2 = first('u'); var su2 = u2 && W.unitById(st, u2.id); if (!su2 || !U[su2.type].ground || U[su2.type].heli || U[su2.type].naval || U[su2.type].cls === 'train') { toast('Tap one of your ground units near the coast.'); return; } p.uid = su2.id; p.kind = 'sealift2'; paintBanner(); return; }
   else if (k === 'sealift2') ok = issue({ k: 'lift', uid: p.uid, x: w.x, y: w.y });
   else if (k === 'cas') { var c2 = first('k'); ok = issue(c2 ? { k: 'cas', cid: c2.id, x: st.con[st.side][c2.id].x, y: st.con[st.side][c2.id].y } : { k: 'cas', x: w.x, y: w.y }); }
@@ -338,6 +338,7 @@ function handlePick(sx, sy) {
   } else if (k === 'cut') ok = issue({ k: 'strike', x: w.x, y: w.y, node: { t: 'r' } });
   else if (k === 'recon' || k === 'awacs') ok = issue({ k: k, x: w.x, y: w.y, h: app.capH });
   else if (k === 'cap') ok = issue({ k: 'cap', x: w.x, y: w.y, h: app.capH });
+  else if (k === 'loiter') ok = issue({ k: 'loiter', x: w.x, y: w.y });
   else if (k === 'land') {
     var a = first('a'); if (!a || st.ad[a.i].o !== st.side) { toast('Tap one of your own airfields.'); return; }
     if (st.deploy) { var d = false; app.sel.forEach(function (id) { if (W.deployMove(st, id, 0, 0, a.i)) d = true; }); ok = d; if (!d) toast('Only aircraft can be based there.'); }
@@ -379,7 +380,7 @@ function orderText(u) {
   var o = u.orders && u.orders[0], st = app.st; if (U[u.type].air && u.state === 'base') return o ? 'ready: ' + o.k : 'on the ground';
   if (u.broken) return 'broken, falling back'; if (!o) return U[u.type].air || U[u.type].heli ? (u.state === 'fly' ? 'returning' : 'landed') : (u.dig >= 1 ? 'dug in' : u.dig > 0 ? 'digging in' : 'idle');
   var n = u.orders.length > 1 ? ' +' + (u.orders.length - 1) : '';
-  var m = { move: 'moving', amove: 'attack-move', hunt: 'hunting', hold: 'holding', dig: 'digging in', wait: 'waiting', haul: 'hauling', cas: 'ground attack', strike: 'strike', recon: 'recon', cap: 'patrol', awacs: 'AWACS', rtb: 'returning', land: 'landing', lift: 'air assault', bombard: 'shelling', airstrike: 'air strike' };
+  var m = { move: 'moving', amove: 'attack-move', hunt: 'hunting', hold: 'holding', dig: 'digging in', wait: 'waiting', haul: 'hauling', cas: 'ground attack', strike: 'strike', recon: 'recon', cap: 'patrol', loiter: 'circling & attacking', awacs: 'AWACS', rtb: 'returning', land: 'landing', lift: 'air assault', bombard: 'shelling', airstrike: 'air strike' };
   return (m[o.k] || o.k) + n;
 }
 function chip(a, label, extra, on) { return '<button data-a="' + a + '"' + (on ? ' class="on"' : '') + (extra ? ' ' + extra : '') + '>' + label + '</button>'; }
@@ -539,8 +540,8 @@ function uAtk(su, g) {
   if (app.selCon != null && st.con[st.side][app.selCon]) h += conInfo();
   h += '<div class="lbl">Ground and sea</div><div class="chips">';
   if (g.atk || g.nav) h += (g.atk || nvA ? chip('pick:amove', '⚔ ATTACK-MOVE') + chip('pick:hunt', '🎯 HUNT A CONTACT') : '');
-  if (g.arty) h += chip('pick:fire', '💥 ARTILLERY BARRAGE') + chip('firem', '⏱ ' + (app.fireM || 60) + ' min');
-  if (g.ssm) h += chip('pick:fire', '🚀 CONVENTIONAL MISSILE STRIKE') + chip('firem', '⏱ ' + (app.fireM || 60) + ' min');
+  if (g.arty) h += chip('pick:fire', '💥 ARTILLERY BARRAGE') + chip('firem', app.fireM ? '⏱ ' + app.fireM + ' min' : '⏱ ∞ UNTIL STOPPED') + chip('cease', '⛔ CEASE FIRE');
+  if (g.ssm) h += chip('pick:fire', '🚀 CONVENTIONAL MISSILE STRIKE') + chip('firem', app.fireM ? '⏱ ' + app.fireM + ' min' : '⏱ ∞ UNTIL STOPPED') + chip('cease', '⛔ CEASE FIRE');
   if (g.nv.some(function (d) { return d.shore > 0; })) h += chip('pick:bombard', '🚢 SHELL THE COAST');
   if (!(g.atk || g.nav || g.arty || g.ssm)) h += '<span class="dim">This selection has no ground attack.</span>';
   h += '</div>';
@@ -575,7 +576,7 @@ function uTask(su, g) {
   var st = app.st, h = '', u = su[0];
   h += hint('Special jobs and the order queue. Orders run top to bottom.');
   h += '<div class="chips">';
-  if (g.air || g.heli) h += (g.roles.cap ? chip('pick:cap', '🛡 PATROL (CIRCLE)') : '') + (g.roles.recon ? chip('pick:recon', '🔍 RECON') : '') + (g.roles.awacs ? chip('pick:awacs', '📡 AWACS ORBIT') : '') + chip('caph', '⏱ ' + app.capH + ' h');
+  if (g.air || g.heli) h += (g.roles.cas ? chip('pick:loiter', '🔄 CIRCLE & ATTACK AREA') : '') + (g.roles.cap ? chip('pick:cap', '🛡 PATROL (CIRCLE)') : '') + (g.roles.recon ? chip('pick:recon', '🔍 RECON') : '') + (g.roles.awacs ? chip('pick:awacs', '📡 AWACS ORBIT') : '') + chip('caph', '⏱ ' + app.capH + ' h');
   if (g.heli && su.some(function (x) { return U[x.type].lift; })) h += chip('pick:lift1', '🚁 AIR-LIFT TROOPS');
   if (g.nv.some(function (d) { return d.lift; })) h += chip('pick:sealift1', '🚢 SEALIFT TROOPS');
   if (g.log) h += chip('pick:haul1', '🚚 HAUL SUPPLIES');
@@ -762,12 +763,13 @@ document.addEventListener('click', function (ev) {
     case 'ap': st.set.pause[arg] = !st.set.pause[arg]; renderDock(true); return;
     case 'layer': app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
     case 'utab': app.utab = arg; renderDock(true); return;
-    case 'firem': app.fireM = (app.fireM || 60) === 30 ? 60 : (app.fireM || 60) === 60 ? 120 : 30; renderDock(true); return;
+    case 'cease': issue({ k: 'hold' }); renderDock(true); return;
+    case 'firem': app.fireM = !app.fireM ? 30 : app.fireM === 30 ? 120 : 0; renderDock(true); return;
     case 'trail': app.showTrail = app.showTrail === false; renderDock(true); return;
     case 'clrtrk': app.sel.forEach(function (id) { var uu = W.unitById(st, id); if (uu) { uu.trk = []; uu.dist = 0; } }); renderDock(true); return;
     case 'rmord': { var pp = arg.split(':'), ru = W.unitById(st, +pp[0]); if (ru) { ru.orders.splice(+pp[1], 1); ru.path = null; } renderDock(true); return; }
     case 'unsel': app.sel = app.sel.filter(function (i) { return i !== +arg; }); renderDock(true); return;
-    case 'tgt': { var tp = arg.split(':'), tc = st.con[st.side][+tp[0]]; if (!tc) return; if (tp[1] === 'fire') issue({ k: 'fire', x: tc.x, y: tc.y, mins: app.fireM || 60 }); else if (tp[1] === 'cas') issue({ k: 'cas', cid: +tp[0], x: tc.x, y: tc.y }); else issue({ k: 'hunt', cid: +tp[0] }); return; }
+    case 'tgt': { var tp = arg.split(':'), tc = st.con[st.side][+tp[0]]; if (!tc) return; if (tp[1] === 'fire') issue({ k: 'fire', x: tc.x, y: tc.y, mins: app.fireM || 0 }); else if (tp[1] === 'cas') issue({ k: 'cas', cid: +tp[0], x: tc.x, y: tc.y }); else issue({ k: 'hunt', cid: +tp[0] }); return; }
     case 'caph': app.capH = app.capH === 3 ? 6 : app.capH === 6 ? 12 : 3; renderDock(true); return;
     case 'pick': if (!app.sel.length) { toast('Select a unit first.'); return; } startPick(arg); return;
     case 'do': if (!app.sel.length) return; issue({ k: arg }); return;
