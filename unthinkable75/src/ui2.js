@@ -20,8 +20,9 @@ function saveSlot() { if (!app.st || !app.slot) return; try { Store.set(slotKey(
 /* ---------- app ---------- */
 var app = { screen: 'slots', slot: null, st: null, tab: 'units', sel: [], selNode: null, selCon: null, multi: false, addStop: false, pick: null, setup: { side: 'NATO', diff: 'normal' },
   dock: 1, modal: null, toast: '', toastT: 0, layers: { roads: true, rails: true, air: true, cities: true, cons: true }, view: { cx: 0, cy: 0, z: 0.6 }, capH: 3, mini: false, speed: 0 };
-var SPEEDS = [0, 15, 60, 240, 720];   // game minutes per real second
-var SPEEDN = ['pause', '15m/s', '1h/s', '4h/s', '12h/s'];
+var SPEEDS = [0, 1 / 60, 0.25, 1, 5, 15, 60, 240, 720];   // game minutes per real second
+var SPEEDN = ['pause', 'x1 real time', 'x15', 'x60 (1 min/s)', 'x300', 'x900', 'x3600 (1 h/s)', '4 h/s', '12 h/s'];
+var TOPSPD = [[0, '⏸'], [1, '1×'], [3, '60×'], [5, '900×'], [7, '⏩']];
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function toast(t) { app.toast = t; app.toastT = Date.now() + 3200; paintToast(); }
@@ -166,7 +167,11 @@ function draw() {
     ctx.save(); ctx.translate(pa[0], pa[1]); ctx.rotate(0.6); ctx.globalAlpha = ad.dmg > 0.6 ? 0.45 : 1; ctx.strokeStyle = col2; ctx.lineWidth = 1.6; ctx.fillStyle = 'rgba(8,14,12,.8)';
     ctx.beginPath(); ctx.rect(-sz, -1.6, sz * 2, 3.2); ctx.fill(); ctx.stroke(); ctx.restore();
     if (ad.cp > 0.02) { ctx.beginPath(); ctx.arc(pa[0], pa[1], sz + 3, -1.57, -1.57 + 6.28 * ad.cp); ctx.strokeStyle = SIDE_COL[ad.cs] || '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
-    if (stack) { ctx.font = 'bold 9px ui-monospace,monospace'; ctx.fillStyle = col2; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,14,12,.85)'; ctx.strokeText('✈' + stack.length, pa[0], pa[1] - sz + 1); ctx.fillText('✈' + stack.length, pa[0], pa[1] - sz + 1); }
+    if (stack) {
+      var pn2 = Math.min(stack.length, 6), pz = Math.max(0.8, Math.min(1.6, 0.7 + z * 0.5));
+      for (var pk = 0; pk < pn2; pk++) { var off = (pk - (pn2 - 1) / 2) * 8 * pz; ctx.save(); ctx.translate(pa[0] + Math.cos(0.6) * off + 5, pa[1] + Math.sin(0.6) * off - 9 * pz); ctx.scale(pz, pz); drawSym(ctx, 'A', 0, 0, col2); ctx.restore(); }
+    }
+    if (stack) { ctx.font = 'bold 9px ui-monospace,monospace'; ctx.fillStyle = col2; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,14,12,.85)'; ctx.strokeText('✈' + stack.length, pa[0], pa[1] - sz - 11); ctx.fillText('✈' + stack.length, pa[0], pa[1] - sz - 11); }
     if (z >= 2.6 || (app.selNode && app.selNode.t === 'a' && app.selNode.i === i)) { ctx.font = '9px system-ui'; ctx.fillStyle = 'rgba(190,230,200,.85)'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(A[0], pa[0] + sz + 3, pa[1] + 5); }
   }
   // selected node ring
@@ -409,7 +414,7 @@ function panelBuild() {
 function panelManage() {
   var st = app.st, h = '';
   if (st.deploy) h += '<div class="note good"><b>Deployment.</b> Tap a unit, then PLACE and tap a spot in your own territory (aircraft: BASE AT, tap an airfield). When you are ready press START WAR.</div><div class="chips">' + chip('start', 'START WAR') + '</div>';
-  h += '<div class="lbl">Time</div><div class="chips">' + SPEEDS.map(function (s, i) { return chip('speed:' + i, i ? '▶'.repeat(Math.min(i, 3)) + (i === 4 ? '⏩' : '') + ' ' + SPEEDN[i] : '⏸ pause', '', app.speed === i); }).join('') + '</div>';
+  h += '<div class="lbl">Time</div><div class="chips">' + SPEEDS.map(function (s, i) { return chip('speed:' + i, i ? '▶ ' + SPEEDN[i] : '⏸ pause', '', app.speed === i); }).join('') + '</div>';
   h += '<div class="lbl">Auto-pause when</div><div class="chips">' + [['contact', 'new contact'], ['battle', 'battle starts'], ['lost', 'unit lost'], ['nuke', 'nuclear event'], ['idle', 'unit idle']].map(function (x) { return chip('ap:' + x[0], x[1], '', st.set.pause[x[0]]); }).join('') + '</div>';
   h += '<div class="lbl">Logistics</div><div class="chips">' + chip('auto', 'AUTO SUPPLY TRAINS ' + (st.set.auto !== false ? 'ON' : 'OFF'), '', st.set.auto !== false) + '</div>';
   h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts']].map(function (x) { return chip('layer:' + x[0], x[1], '', app.layers[x[0]]); }).join('') + '</div>';
@@ -489,7 +494,7 @@ function renderMini() { var el = $('mini'), st = app.st; el.innerHTML = st ? '<b
 function paintTop() {
   var st = app.st; if (!st || app.screen !== 'game') return; var c = $('clk'); if (!c) return;
   c.textContent = W.dateStr(st.t).slice(0, 6) + ' ' + W.dateStr(st.t).slice(-5); $('sub').textContent = st.side + ' · day ' + W.dayOf(st) + '/' + W.MAX_DAYS + (st.deploy ? ' · deploy' : '');
-  $('spd').innerHTML = st.deploy ? '<button class="pri" data-a="start">START WAR</button>' : [0, 1, 2, 3, 4].map(function (i) { return '<button data-a="speed:' + i + '" class="' + (app.speed === i ? 'on' : '') + '">' + (['⏸', '▶', '▶▶', '▶▶▶', '⏩'][i]) + '</button>'; }).join('');
+  $('spd').innerHTML = st.deploy ? '<button class="pri" data-a="start">START WAR</button>' : TOPSPD.map(function (t) { return '<button data-a="speed:' + t[0] + '" class="' + (app.speed === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('');
 }
 function paintHud() {
   var st = app.st, h = $('hud'); if (!h || !st) return; var side = st.side, P = st.pol[side], v = W.vpShift(st);
@@ -539,7 +544,7 @@ document.addEventListener('click', function (ev) {
     case 'new': app.slot = +arg; app.screen = 'setup'; break;
     case 'setside': app.setup.side = arg; break; case 'setdiff': app.setup.diff = arg; break;
     case 'start': if (app.screen === 'setup') { app.st = W.newGame({ side: app.setup.side, diff: app.setup.diff }); app.sel = []; app.speed = 0; app.tab = 'manage'; app.screen = 'game'; var f = W.ll(9.7, 50.5); app.view = { cx: f.x, cy: f.y, z: 0.55 }; saveSlot(); }
-      else if (st) { W.startWar(st); app.speed = 1; app.tab = 'units'; saveSlot(); toast('The war begins.'); } break;
+      else if (st) { W.startWar(st); app.speed = 3; app.tab = 'units'; saveSlot(); toast('The war begins.'); } break;
     case 'cont': if (openSlot(+arg)) break; return;
     case 'reset': app.modal = { type: 'reset', n: +arg }; break;
     case 'doreset': Store.del(slotKey(app.modal.n)); app.modal = null; break;

@@ -1377,8 +1377,8 @@ function step(st, dt) {
   dt = dt || STEP; st.t += dt;
   st.units.forEach(function (u) { var d = U[u.type]; if (!d.air && !d.heli && !d.naval && u.str > 0 && !u.cargoed) moveGround(st, u, dt); });
   navalStep(st, dt);
-  var sub = Math.round(dt / 3);
-  for (var i = 0; i < sub; i++) { airStep(st, 3); airDefence(st, 3); airCombat(st, 3); }
+  var sub = Math.max(1, Math.round(dt / 3)), sdt = dt / sub;
+  for (var i = 0; i < sub; i++) { airStep(st, sdt); airDefence(st, sdt); airCombat(st, sdt); }
   combat(st, dt);
   st.units = st.units.filter(function (u) { return !u.dead; });
   capture(st, dt); supplyStep(st, dt);
