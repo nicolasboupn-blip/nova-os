@@ -1147,28 +1147,13 @@ function combat(st, dt) {
     var o = u.orders[0], moving = o && o.k === 'move'; if (o && o.k === 'fire') return;
     var tg = [];
     nearbyH(h, size, u.x, u.y, R, function (e) {
-<<<<<<< HEAD
-      if (e.side === u.side || e.str <= 0 || e.hidden) return; var dd = dist(u.x, u.y, e.x, e.y); if (dd <= R && dd < bd) { bd = dd; best = e; }
-=======
-      if (e.side === u.side || e.str <= 0) return; var dd = dist(u.x, u.y, e.x, e.y); if (dd <= R) tg.push([dd, e]);
->>>>>>> 4b65034 (Unthinkable: unit stances (aggressive/passive/neutral), aggressive fires at everything in its circle)
+      if (e.side === u.side || e.str <= 0 || e.hidden) return; var dd = dist(u.x, u.y, e.x, e.y); if (dd <= R) tg.push([dd, e]);
     });
     if (!tg.length) return;
     if (moving && !isArty) return;
-<<<<<<< HEAD
-    if (u.hidden && bd > 4) return;   // an ambusher waits for the enemy to come close
-    var base = d.a * (u.str / 100) * supF(u) * morF(u);
-    if (isArty) base *= 0.9;
-    var ed = U[best.type], defv = ed.d * (best.dig > 0 ? 1 + 0.45 * best.dig : 1) * (ownCityNear(st, best.side, best.x, best.y, 7) ? 1.25 : 1);
-    var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'ssm' || ed.cls === 'aa') ? 1.6 : ed.cls === 'arty' ? 1.3 : 1;
-    var mult = 1; if (best.dig <= 0 && u.orders[0] && u.orders[0].k === 'amove') mult = 1.1;
-    if (u.hidden) { u.hidden = false; u.amb = 0; u.ambT = st.t + 45; uhist(st, u, 'Sprang an ambush on ' + U[best.type].n.split(' (')[0] + '.'); if (u.side === st.side) ev(st, 'info', 'Ambush sprung near ' + placeName(u.x, u.y) + '.', u.x, u.y); }
-    if (u.ambT > st.t) mult *= 1.8;
-    var dd2 = 3.2 * base * mult * soft / (defv + 2) * dt / 60;
-    dmg[best.id] = (dmg[best.id] || 0) + dd2; hurt[best.id] = best; src[best.id] = u;
-    if (isArty && !(u.fxT > st.t)) { u.fxT = st.t + 9; for (var fk = 0; fk < 2; fk++) st.fx.push({ k: 'shell', x0: u.x, y0: u.y, x1: best.x + rr(st, -2, 2), y1: best.y + rr(st, -2, 2), t: st.t, s: u.side }); }
-=======
     tg.sort(function (a, b) { return a[0] - b[0]; });
+    if (u.hidden && tg[0][0] > 4) return;   // an ambusher waits for the enemy to come close
+    if (u.hidden) { var b0 = tg[0][1]; u.hidden = false; u.amb = 0; u.ambT = st.t + 45; uhist(st, u, 'Sprang an ambush on ' + U[b0.type].n.split(' (')[0] + '.'); if (u.side === st.side) ev(st, 'info', 'Ambush sprung near ' + placeName(u.x, u.y) + '.', u.x, u.y); }
     var nT = (stance === 'aggr' && !isArty) ? Math.min(4, tg.length) : 1, share = nT > 1 ? Math.min(1.6, 1 + 0.2 * (nT - 1)) / nT : 1;   // aggressive: fires at everything in its circle
     var base = d.a * (u.str / 100) * supF(u) * morF(u);
     if (isArty) base *= 0.9;
@@ -1176,13 +1161,12 @@ function combat(st, dt) {
       var best = tg[ti][1];
       var ed = U[best.type], defv = ed.d * (best.dig > 0 ? 1 + 0.45 * best.dig : 1) * (ownCityNear(st, best.side, best.x, best.y, 7) ? 1.25 : 1);
       var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'ssm' || ed.cls === 'aa') ? 1.6 : ed.cls === 'arty' ? 1.3 : 1;
-      var mult = 1; if (best.dig <= 0 && u.orders[0] && u.orders[0].k === 'amove') mult = 1.1;
+      var mult = 1; if (best.dig <= 0 && u.orders[0] && u.orders[0].k === 'amove') mult = 1.1; if (u.ambT > st.t) mult *= 1.8;
       var dd2 = 3.2 * base * mult * soft / (defv + 2) * dt / 60 * share;
       dmg[best.id] = (dmg[best.id] || 0) + dd2; hurt[best.id] = best; src[best.id] = u;
       if (isArty && !(u.fxT > st.t) && ti === 0) { u.fxT = st.t + 9; for (var fk = 0; fk < 2; fk++) st.fx.push({ k: 'shell', x0: u.x, y0: u.y, x1: best.x + rr(st, -2, 2), y1: best.y + rr(st, -2, 2), t: st.t, s: u.side }); }
       best.bt = 60; best.hit = st.t; u.last = best.id; best.lastBy = u.side;
     }
->>>>>>> 4b65034 (Unthinkable: unit stances (aggressive/passive/neutral), aggressive fires at everything in its circle)
     u.bt = 60; if (!isArty) u.sup = Math.max(0, u.sup - 0.9 * dt / 60 * 2);
     if (isArty) u.sup = Math.max(0, u.sup - 0.5 * dt / 60 * 2);
   });
@@ -1909,13 +1893,8 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-<<<<<<< HEAD
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, dmgInfo: dmgInfo, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, setStance: setStance, dmgInfo: dmgInfo, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus, killUnit: killUnit, SAM_CD: SAM_CD };
-=======
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, dmgInfo: dmgInfo, setStance: setStance, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
-  UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus };
->>>>>>> 4b65034 (Unthinkable: unit stances (aggressive/passive/neutral), aggressive fires at everything in its circle)
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
