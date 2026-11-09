@@ -1615,16 +1615,18 @@ function deliveryFor(st, side, tx, ty, lvl) {
   });
   return best;
 }
+function nukeStock(st, side) { if (!st.nukes) st.nukes = { NATO: st.era === 'm' ? 4 : 3, PACT: st.era === 'm' ? 4 : 3 }; return st.nukes[side]; }
+function buyWarhead(st, side) { var c = 6; if (st.pts[side] < c) return { ok: false, msg: 'A warhead costs ' + c + ' points.' }; nukeStock(st, side); st.pts[side] -= c; st.nukes[side]++; logm(st, side + ' buys another nuclear warhead (' + st.nukes[side] + ' in stock).', 'warn'); return { ok: true, msg: '' }; }
 function nukeOptions(st, side) {
   var P = st.pol[side], out = [];
-  var cdOk = st.nukeCool[side] <= 0;
+  var cdOk = st.nukeCool[side] <= 0, stock = side !== st.side || nukeStock(st, side) > 0;
   var blockN = side === 'NATO' && P.coh < 35;
   out.push({ id: 'alert', lvl: 1, name: 'Nuclear alert', desc: 'Disperse nuclear units and open release talks. Costs a little home-front confidence.', ok: st.esc < 1 && !blockN, why: st.esc >= 1 ? 'Already raised.' : blockN ? 'Allies are wavering.' : '' });
   var needEng = side === 'NATO' ? hasUnit(st, side, function (u, d) { return d.cls === 'eng'; }) : true;
   out.push({ id: 'warn', lvl: 2, name: side === 'NATO' ? 'Atomic demolition mines / release request' : 'Release warning to the front', desc: 'Moves you to level 2 and prepares battlefield weapons. A strong signal to the other side.', ok: st.esc === 1 && needEng && !blockN && P.pc >= 2, why: st.esc !== 1 ? 'Needs level 1 first.' : !needEng ? 'Needs combat engineers.' : blockN ? 'Allies are wavering.' : P.pc < 2 ? 'Needs 2 political capital.' : '' });
   var dn = hasUnit(st, side, function (u, d) { return d.nuke; });
-  out.push({ id: 'tac', lvl: 3, name: 'Battlefield nuclear strike', target: 'point', radius: 16, desc: 'Pick a point: everything within about 16 km is devastated and fallout lingers. Needs a nuclear-capable missile or aircraft in range.', ok: st.esc >= 2 && cdOk && dn && !blockN, why: st.esc < 2 ? 'Needs level 2 first.' : !dn ? 'No nuclear-capable unit.' : !cdOk ? 'Launchers are reloading.' : blockN ? 'Allies are wavering.' : '' });
-  out.push({ id: 'rear', lvl: 4, name: 'Rear-area strike on a city', target: 'point', radius: 26, desc: 'Pick a target: a city or base far behind the line is struck. The other side will almost certainly answer.', ok: st.esc >= 3 && cdOk && dn && !blockN, why: st.esc < 3 ? 'Needs level 3 first.' : !dn ? 'No nuclear-capable unit.' : !cdOk ? 'Launchers are reloading.' : blockN ? 'Allies are wavering.' : '' });
+  out.push({ id: 'tac', lvl: 3, name: 'Battlefield nuclear strike', target: 'point', radius: 16, desc: 'Pick a point: everything within about 16 km is devastated and fallout lingers. Needs a nuclear-capable missile or aircraft in range.', ok: st.esc >= 2 && cdOk && dn && stock && !blockN, why: !stock ? 'No warheads left. Buy one in this tab.' : st.esc < 2 ? 'Needs level 2 first.' : !dn ? 'No nuclear-capable unit.' : !cdOk ? 'Launchers are reloading.' : blockN ? 'Allies are wavering.' : '' });
+  out.push({ id: 'rear', lvl: 4, name: 'Rear-area strike on a city', target: 'point', radius: 26, desc: 'Pick a target: a city or base far behind the line is struck. The other side will almost certainly answer.', ok: st.esc >= 3 && cdOk && dn && stock && !blockN, why: !stock ? 'No warheads left. Buy one in this tab.' : st.esc < 3 ? 'Needs level 3 first.' : !dn ? 'No nuclear-capable unit.' : !cdOk ? 'Launchers are reloading.' : blockN ? 'Allies are wavering.' : '' });
   out.push({ id: 'ruin', lvl: 5, name: 'Strategic exchange', desc: 'Total war. Both homelands burn and nobody wins.', ok: st.esc >= 4 && !blockN, danger: true, why: st.esc < 4 ? 'Needs level 4 first.' : '' });
   return out;
 }
@@ -1638,8 +1640,8 @@ function nukeAct(st, side, id, tx, ty) {
   else {
     var del = deliveryFor(st, side, tx, ty); if (!del) return { ok: false, msg: 'No launcher in range of that target.' };
     var big = id === 'rear', R = big ? 26 : 16;
-    if (del.u.air) { del.u.rdy = st.t + 480; del.u.str -= 8; } else { del.u.rdy = st.t + 720; }
-    st.nukeCool[side] = 360; st.stats.nukes++;
+    if (del.u.air) { del.u.rdy = st.t + 120; del.u.str -= 8; } else { del.u.rdy = st.t + 180; }
+    st.nukeCool[side] = 45; st.stats.nukes++; if (side === st.side) st.nukes[side] = Math.max(0, nukeStock(st, side) - 1);
     st.esc = Math.max(st.esc, big ? 4 : 3); st.stats.maxEsc = Math.max(st.stats.maxEsc, st.esc);
     st.units.forEach(function (u) {
       if (u.cargoed) return; var dd = dist(u.x, u.y, tx, ty); if (dd > R * 1.3 || (U[u.type].air && u.state === 'fly')) return;
@@ -1896,7 +1898,7 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, setStance: setStance, dmgInfo: dmgInfo, setDmgMul: setDmgMul, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, setStance: setStance, dmgInfo: dmgInfo, buyWarhead: buyWarhead, nukeStock: nukeStock, setDmgMul: setDmgMul, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus, killUnit: killUnit, SAM_CD: SAM_CD };
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;

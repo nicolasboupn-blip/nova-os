@@ -702,6 +702,7 @@ function panelEsc() {
   var st = app.st, side = st.side, h = '<div class="ladder">';
   W.ESC_NAMES.forEach(function (n, i) { h += '<div class="' + (i <= st.esc ? 'on ' : '') + (i === 5 ? 'ruin' : '') + '"><b>' + i + '</b>' + esc(n) + '</div>'; });
   h += '</div><div class="note ' + (st.esc >= 3 ? 'bad' : '') + '">Every strike hurts your home front and alliance, and the other side may answer. Level 5 ends the war in mutual ruin.</div>';
+  h += '<div class="card" data-a="buynuke"><h3><span>☢ Warheads in stock: ' + W.nukeStock(st, side) + '</span><span class="mono">BUY 1 · 6 PTS</span></h3><p>Every strike uses one warhead. F-35s, F-16s, Rafales, F-15Es and bombers, plus missile brigades, can all carry them.</p></div>';
   W.nukeOptions(st, side).forEach(function (o) { h += '<div class="card' + (o.ok ? '' : ' off') + '" ' + (o.ok ? 'data-a="nuke:' + o.id + '"' : '') + '><h3><span>' + esc(o.name) + '</span><span class="mono nuke">L' + o.lvl + '</span></h3><p>' + esc(o.desc) + '</p>' + (o.why ? '<div class="why">' + esc(o.why) + '</div>' : '') + '</div>'; });
   return h;
 }
@@ -846,6 +847,7 @@ document.addEventListener('click', function (ev) {
     case 'statmul': { var sp = arg.split(':'), tk = sp[0], mv = sp[1], cur = mulOf(tk) * 100; var nv = mv === 'reset' ? 100 : mv === 'x2' ? cur * 2 : cur + (+mv); W.setDmgMul(st, [tk], Math.max(0, Math.min(1000, nv)) / 100); renderDock(true); return; }
     case 'statall': { var sa = arg.split(':'), onlyArt = sa[0] === 'art', dl = +(onlyArt ? sa[1] : sa[0]); var side2 = app.statSide || st.side; var ids = statUnits(side2).filter(function (k) { return !onlyArt || U[k].cls === 'arty'; }); ids.forEach(function (k) { W.setDmgMul(st, [k], Math.max(0, Math.min(10, mulOf(k) + dl / 100))); }); renderDock(true); return; }
     case 'statreset': { var all = Object.keys(st.dmgMul || {}); W.setDmgMul(st, all, 1); toast('Damage reset to normal'); renderDock(true); return; }
+    case 'buynuke': { var bn = W.buyWarhead(st, st.side); toast(bn.ok ? 'Warhead bought' : bn.msg); renderDock(true); return; }
     case 'statopen': app.statOpen = app.statOpen === arg ? null : arg; renderDock(true); return;
     case 'cfire': issue({ k: 'hold' }); renderDock(true); return;
     case 'firem': app.fireM = !app.fireM ? 30 : app.fireM === 30 ? 120 : 0; renderDock(true); return;
