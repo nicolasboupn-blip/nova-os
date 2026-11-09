@@ -313,7 +313,7 @@ function newGame(opts, mapObj) {
     pts: { NATO: 14, PACT: 14 }, queue: [], esc: 0, retal: { NATO: 0, PACT: 0 }, nukeCool: { NATO: 0, PACT: 0 }, pol: { NATO: { pc: 4, coh: 75 }, PACT: { pc: 4, coh: 75 }, world: 45, med: 0 },
     will: { NATO: 70, PACT: 80 }, fallout: [], cuts: [], log: [], events: [], ended: null, deploy: true, wins: { NATO: 0, PACT: 0 },
     stats: { lost: { NATO: 0, PACT: 0 }, kills: { NATO: 0, PACT: 0 }, nukes: 0, maxEsc: 0, sorties: { NATO: 0, PACT: 0 } },
-    set: { pause: { contact: true, battle: false, nuke: true, lost: false, idle: false } }, aiT: 0, railT: 0, lastBat: {}, viol: {}, nearEnd: 0, vp0: null };
+    set: { auto: true, pause: { contact: true, battle: false, nuke: true, lost: false, idle: false } }, aiT: 0, railT: 0, lastBat: {}, viol: {}, nearEnd: 0, vp0: null };
   for (var i = 0; i < MAP.cities.length; i++) { var c = MAP.cities[i]; st.cd.push({ o: OWN[c[6]] || 'NEUT', stk: 60, inf: 100, cp: 0, cs: null, conn: 1 }); }
   for (i = 0; i < MAP.air.length; i++) { var a = MAP.air[i]; st.ad.push({ o: OWN[a[8]] || 'NEUT', dmg: 0, cp: 0, cs: null }); }
   ['NATO', 'PACT'].forEach(function (side) {
@@ -328,6 +328,32 @@ function newGame(opts, mapObj) {
       var p = ll(g[0], g[1]), af = nearestAF(st, p.x, p.y, side, 90); if (af < 0) return;
       for (var k = 0; k < (g[3] || 1); k++) { var u = mkUnit(st, g[2], side, MAP.air[af][2], MAP.air[af][3]); u.base = af; st.units.push(u); }
     });
+  });
+  // second echelon and garrisons: reserves behind the front, around the big rear cities
+  ['NATO', 'PACT'].forEach(function (side) {
+    var pool = side === 'NATO' ? ['inf', 'inf', 'mech', 'armor', 'inf', 'mortar'] : ['mot', 'mot', 'tank', 'mot', 'pmortar', 'vdv'], left = side === 'NATO' ? 22 : 30, foe = OTHER[side];
+    pool = pool.filter(function (k) { return U[k]; });
+    var fronts = st.units.filter(function (u) { return u.side === foe && U[u.type].ground && !U[u.type].heli && !U[u.type].naval; });
+    var cand = [];
+    for (var ci = 0; ci < MAP.cities.length; ci++) {
+      if (st.cd[ci].o !== side || MAP.cities[ci][3] < (side === 'NATO' ? 110 : 250)) continue; var C = MAP.cities[ci], near = 1e9;
+      fronts.forEach(function (e) { var d = dist(C[1], C[2], e.x, e.y); if (d < near) near = d; });
+      if (near > (side === 'NATO' ? 160 : 230) && near < 4000) cand.push({ i: ci, sc: MAP.cities[ci][3] * (0.6 + rnd(st)) });
+    }
+    cand.sort(function (a, b) { return b.sc - a.sc; });
+    cand.slice(0, left).forEach(function (c, n) {
+      var C = MAP.cities[c.i], type = pool[Math.floor(rnd(st) * pool.length)], p = snapLand(C[1] + rr(st, -9, 9), C[2] + rr(st, -9, 9)), u = mkUnit(st, type, side, p.x, p.y);
+      u.str = Math.round(rr(st, 80, 95)); u.mor = Math.round(rr(st, 60, 80)); if (rnd(st) < 0.6) { u.orders = [{ k: 'dig' }]; } st.units.push(u);
+      if (rnd(st) < 0.5) { var q = snapLand(C[1] + rr(st, -12, 12), C[2] + rr(st, -12, 12)), v = mkUnit(st, pool[Math.floor(rnd(st) * pool.length)], side, q.x, q.y); v.str = Math.round(rr(st, 80, 95)); st.units.push(v); }
+    });
+  });
+  // every sizeable military airfield starts with a wing: fill the empty ones
+  ['NATO', 'PACT'].forEach(function (side) {
+    var pool = side === 'NATO' ? ['f4', 'f104', 'jag', 'f104', 'f4', 'rf4'] : ['mig21', 'su7', 'mig21', 'su7', 'mig21'], left = side === 'NATO' ? 30 : 38, used = {};
+    st.units.forEach(function (u) { if (u.base != null && u.side === side) used[u.base] = 1; });
+    var cand = []; for (var ai = 0; ai < MAP.air.length; ai++) { var A = MAP.air[ai]; if (st.ad[ai].o === side && !used[ai] && A[5] >= 2 && (A[6] || A[5] === 3) && A[4] >= 1800) cand.push(ai); }
+    for (var q = cand.length - 1; q > 0; q--) { var j = Math.floor(rnd(st) * (q + 1)), t = cand[q]; cand[q] = cand[j]; cand[j] = t; }
+    cand.slice(0, left).forEach(function (ai) { var u = mkUnit(st, pool[Math.floor(rnd(st) * pool.length)], side, MAP.air[ai][2], MAP.air[ai][3]); u.base = ai; u.home = ai; st.units.push(u); });
   });
   ['NATO', 'PACT'].forEach(function (side) {
     (NAVY[side] || []).forEach(function (g) {
@@ -1175,6 +1201,31 @@ function politicsStep(st, dt) {
 }
 
 /* ============================================================ AI (plays whichever side the player did not pick) */
+/* trains and convoys run themselves (always for the AI; for the player while the auto-supply switch is on) */
+function autoSupply(st, side) {
+  var mine = st.units.filter(function (u) { return u.side === side && u.str > 0 && !u.cargoed && !u.orders.length && (U[u.type].cls === 'train' || U[u.type].cls === 'convoy'); });
+  if (!mine.length) return;
+  var gu = st.units.filter(function (u) { return u.side === side && u.str > 0 && U[u.type].cls === 'gnd'; }), taken = {};
+  st.units.forEach(function (u) { if (u.side === side) u.orders.forEach(function (o) { if (o.k === 'haul') taken[o.to] = (taken[o.to] || 0) + 1; }); });
+  mine.forEach(function (u) {
+    var d = U[u.type], to = -1, ts = 1e9, from = -1, fs = -1;
+    for (var j = 0; j < MAP.cities.length; j++) {
+      if (st.cd[j].o !== side || st.cd[j].stk >= 70) continue; var C = MAP.cities[j], near = 1e9;
+      gu.forEach(function (g) { var dd = dist(g.x, g.y, C[1], C[2]); if (dd < near) near = dd; });
+      if (near > 110 || dist(u.x, u.y, C[1], C[2]) > (d.cls === 'train' ? 700 : 260)) continue;
+      var sc = st.cd[j].stk + near * 0.06 + (taken[j] || 0) * 18; if (sc < ts) { ts = sc; to = j; }
+    }
+    if (to < 0) return;
+    for (var i = 0; i < MAP.cities.length; i++) {
+      if (i === to || st.cd[i].o !== side || !st.cd[i].conn && d.cls === 'train') continue; var dd2 = dist(MAP.cities[i][1], MAP.cities[i][2], MAP.cities[to][1], MAP.cities[to][2]);
+      if (dd2 > (d.cls === 'train' ? 900 : 300) || dd2 < 20) continue;
+      var f = st.cd[i].stk - dd2 * 0.02; if (f > fs) { fs = f; from = i; }
+    }
+    if (from < 0 || st.cd[from].stk < 25) return;
+    var r = issue(st, [u.id], { k: 'haul', from: from, to: to, loop: true, force: true });
+    if (r.ok) taken[to] = (taken[to] || 0) + 1;
+  });
+}
 function aiThink(st, side) {
   var foe = OTHER[side], con = st.con[side], day = dayOf(st);
   var skill = { easy: 0.6, normal: 0.85, hard: 1 }[st.diff] || 0.85;
@@ -1226,6 +1277,7 @@ function aiThink(st, side) {
   var enemyAF = []; for (i = 0; i < MAP.air.length; i++) if (st.ad[i].o === foe && st.ad[i].dmg < 0.9) enemyAF.push(i);
   var front = centroid(combatU), foeUnits = []; for (var id2 in con) if (con[id2].lv === 'id' && !con[id2].air) foeUnits.push(con[id2]);
   var sorties = 0;
+  autoSupply(st, side);
   // ---- navy
   mine.forEach(function (u) {
     var d = U[u.type]; if (!d.naval || u.orders.length || u.str < 40) return;
@@ -1331,6 +1383,7 @@ function step(st, dt) {
   productionStep(st, dt); politicsStep(st, dt);
   st.railT += dt; if (st.railT >= 120 || !st.railDone) { st.railT = 0; st.railDone = true; railFlood(st); }
   detect(st);
+  st.supT = (st.supT || 0) + dt; if (st.supT >= 60) { st.supT = 0; if (st.set.auto !== false) autoSupply(st, st.side); }
   st.aiT += dt; if (st.aiT >= 120) { st.aiT = 0; aiThink(st, OTHER[st.side]); }
   checkEnd(st);
 }
@@ -1357,7 +1410,7 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, snapLand: snapLand, snapWater: snapWater, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, snapLand: snapLand, snapWater: snapWater, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus };
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;

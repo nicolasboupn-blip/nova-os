@@ -45,6 +45,7 @@ var cv, ctx, bg, bgx, cw = 0, ch = 0, dpr = 1, bgView = null, bgDirty = true, la
 function w2s(x, y) { var v = app.view; return [(x - v.cx) * v.z + cw / 2, (y - v.cy) * v.z + ch / 2]; }
 function s2w(sx, sy) { var v = app.view; return { x: (sx - cw / 2) / v.z + v.cx, y: (sy - ch / 2) / v.z + v.cy }; }
 function setupCanvas(stage) {
+  cw = 0; ch = 0; bgView = null; bgDirty = true;
   cv = stage.querySelector('canvas'); ctx = cv.getContext('2d'); bg = document.createElement('canvas'); bgx = bg.getContext('2d');
   sizeCanvas();
 }
@@ -361,6 +362,38 @@ function panelUnits() {
   h += conInfo() + nodeInfo();
   return h;
 }
+function etaText(u) {
+  var d = U[u.type], o = u.orders[0]; if (!o) return '';
+  var L = 0, x = u.x, y = u.y;
+  if (u.path && u.path.length) u.path.forEach(function (p) { L += Math.hypot(p.x - x, p.y - y); x = p.x; y = p.y; });
+  else if (o.k === 'hunt') { var c = app.st.con[app.st.side][o.cid]; if (c) L = Math.hypot(c.x - x, c.y - y); }
+  else if (o.k === 'haul') { var C = M.cities[u.load > 0 ? o.to : o.from]; L = Math.hypot(C[1] - x, C[2] - y); }
+  else if (o.x != null) L = Math.hypot(o.x - x, o.y - y);
+  if (!L) return '';
+  var sp = d.sp * ((d.naval || d.air || d.heli || d.cls === 'train') ? 1 : 0.7), h = L / Math.max(5, sp);
+  return Math.round(L) + ' km · ' + (h < 1 ? Math.max(1, Math.round(h * 60)) + ' min' : h.toFixed(1) + ' h');
+}
+function panelMove() {
+  var st = app.st, mine = ownUnits().filter(function (u) { var d = U[u.type]; return !(d.air && u.state === 'base'); });
+  var moving = mine.filter(function (u) { return u.orders.length && ['dig', 'hold'].indexOf(u.orders[0].k) < 0; }), idle = mine.filter(function (u) { return !u.orders.length && !U[u.type].air; });
+  var h = '<div class="card"><h3><span>Movement</span><span class="mono">' + moving.length + ' moving · ' + idle.length + ' idle</span></h3><p>Every unit with orders, with distance and time to go. Tap a row to select it and give it new orders on the Units tab.</p></div>';
+  h += '<div class="chips">' + chip('selmoving', 'SELECT MOVING') + chip('selidle', 'SELECT IDLE') + chip('stopall', 'STOP ALL MOVING') + chip('auto', 'AUTO SUPPLY ' + (st.set.auto !== false ? 'ON' : 'OFF'), '', st.set.auto !== false) + '</div>';
+  var order = { ground: 0, naval: 1, heli: 2, air: 3, log: 4 };
+  function grp(u) { var d = U[u.type]; return d.cls === 'train' || d.cls === 'convoy' ? 'log' : d.naval ? 'naval' : d.heli ? 'heli' : d.air ? 'air' : 'ground'; }
+  var names = { ground: 'Ground forces', naval: 'Fleet', heli: 'Helicopters', air: 'Aircraft in the air', log: 'Supply trains and convoys' };
+  var lists = {}; moving.concat(idle.filter(function (u) { return grp(u) === 'log'; })).forEach(function (u) { (lists[grp(u)] = lists[grp(u)] || []).push(u); });
+  Object.keys(order).forEach(function (g) {
+    var l = lists[g]; if (!l || !l.length) return;
+    h += '<div class="lbl">' + names[g] + ' (' + l.length + ')</div>';
+    l.slice(0, 40).forEach(function (u) {
+      var d = U[u.type], on = app.sel.indexOf(u.id) >= 0;
+      h += '<div class="urow" data-a="selu:' + u.id + '"' + (on ? ' style="outline:1px solid #f2b84b"' : '') + '>' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + (u.load > 0 ? ' · load ' + Math.round(u.load) : '') + '</div>' + bar(u.str, u.str > 60 ? '' : u.str > 30 ? 'w' : 'r') + '</div><button data-a="clr1:' + u.id + '">✕</button></div>';
+    });
+    if (l.length > 40) h += '<div class="dim">+' + (l.length - 40) + ' more</div>';
+  });
+  if (!moving.length) h += '<div class="dim">Nothing is on the move. Select a unit and give it orders.</div>';
+  return h;
+}
 function panelBuild() {
   var st = app.st, side = st.side, t = W.tier(st, side), h = '';
   h += '<div class="card"><h3><span>Production points</span><span class="mono">' + st.pts[side].toFixed(1) + '</span></h3><p>Tier ' + t + ' (' + W.tierPoints(st, side).toFixed(0) + ' pts). Tier 2 at 9, tier 3 at 22: one point per day of war and two per battle won. Units appear at the selected city or airfield, or automatically in the rear.</p></div>';
@@ -378,6 +411,7 @@ function panelManage() {
   if (st.deploy) h += '<div class="note good"><b>Deployment.</b> Tap a unit, then PLACE and tap a spot in your own territory (aircraft: BASE AT, tap an airfield). When you are ready press START WAR.</div><div class="chips">' + chip('start', 'START WAR') + '</div>';
   h += '<div class="lbl">Time</div><div class="chips">' + SPEEDS.map(function (s, i) { return chip('speed:' + i, i ? '▶'.repeat(Math.min(i, 3)) + (i === 4 ? '⏩' : '') + ' ' + SPEEDN[i] : '⏸ pause', '', app.speed === i); }).join('') + '</div>';
   h += '<div class="lbl">Auto-pause when</div><div class="chips">' + [['contact', 'new contact'], ['battle', 'battle starts'], ['lost', 'unit lost'], ['nuke', 'nuclear event'], ['idle', 'unit idle']].map(function (x) { return chip('ap:' + x[0], x[1], '', st.set.pause[x[0]]); }).join('') + '</div>';
+  h += '<div class="lbl">Logistics</div><div class="chips">' + chip('auto', 'AUTO SUPPLY TRAINS ' + (st.set.auto !== false ? 'ON' : 'OFF'), '', st.set.auto !== false) + '</div>';
   h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts']].map(function (x) { return chip('layer:' + x[0], x[1], '', app.layers[x[0]]); }).join('') + '</div>';
   var v = W.vpShift(st), me = st.side;
   h += '<div class="card"><h3>War status</h3><div class="kv"><span>Day</span><span>' + W.dayOf(st) + ' / ' + W.MAX_DAYS + '</span><span>NATO will</span><span>' + Math.round(st.will.NATO) + '</span><span>Pact will</span><span>' + Math.round(st.will.PACT) + '</span><span>Ground gained, NATO</span><span>' + Math.round(v.NATO * 100) + '%</span><span>Ground gained, Pact</span><span>' + Math.round(v.PACT * 100) + '%</span><span>Units lost N/P</span><span>' + st.stats.lost.NATO + ' / ' + st.stats.lost.PACT + '</span></div><p>First to gain 28% of the other side\'s value wins; if will hits zero that side collapses.</p></div>';
@@ -410,8 +444,8 @@ function panelEsc() {
   return h;
 }
 function panelLog() { return '<div class="lg">' + app.st.log.slice(-60).reverse().map(function (l) { return '<div class="' + l.c + '"><span>' + W.dateStr(l.t).slice(0, 6) + W.dateStr(l.t).slice(-5) + '</span>' + esc(l.m) + '</div>'; }).join('') + '</div>'; }
-var TABS = [['units', 'Units'], ['build', 'Build'], ['manage', 'Manage'], ['intel', 'Intel'], ['pol', 'Politics'], ['esc', 'Escalate'], ['log', 'Log']];
-var PANELS = { units: panelUnits, build: panelBuild, manage: panelManage, intel: panelIntel, pol: panelPol, esc: panelEsc, log: panelLog };
+var TABS = [['units', 'Units'], ['move', 'Movement'], ['build', 'Build'], ['manage', 'Manage'], ['intel', 'Intel'], ['pol', 'Politics'], ['esc', 'Escalate'], ['log', 'Log']];
+var PANELS = { move: panelMove, units: panelUnits, build: panelBuild, manage: panelManage, intel: panelIntel, pol: panelPol, esc: panelEsc, log: panelLog };
 
 /* ---------- screens ---------- */
 function $(id) { return document.getElementById(id); }
@@ -525,6 +559,11 @@ document.addEventListener('click', function (ev) {
     case 'selu': selectUnit(+arg, false); return;
     case 'selsame': { var t0 = W.unitById(st, app.sel[0]); if (t0) selectGroup(function (u) { return u.type === t0.type; }); } break;
     case 'selall': selectGroup(function (u) { var d = U[u.type]; return arg === 'air' ? d.air : arg === 'heli' ? d.heli : arg === 'naval' ? d.naval : d.ground && !d.heli; }); break;
+    case 'selmoving': app.sel = ownUnits().filter(function (u) { return u.orders.length && ['dig', 'hold'].indexOf(u.orders[0].k) < 0 && !(U[u.type].air && u.state === 'base'); }).map(function (u) { return u.id; }); break;
+    case 'selidle': app.sel = ownUnits().filter(function (u) { return !u.orders.length && !U[u.type].air; }).map(function (u) { return u.id; }); app.tab = 'units'; break;
+    case 'stopall': ownUnits().forEach(function (u) { if (u.orders.length && !U[u.type].air && ['dig', 'hold'].indexOf(u.orders[0].k) < 0) { u.orders = []; u.path = null; } }); toast('All movement orders cancelled.'); break;
+    case 'clr1': { var cu = W.unitById(st, +arg); if (cu) { cu.orders = []; cu.path = null; } } break;
+    case 'auto': st.set.auto = st.set.auto === false; toast('Auto supply ' + (st.set.auto ? 'on: trains and convoys run themselves.' : 'off.')); break;
     case 'selnone': app.sel = []; break;
     case 'selwings': selectGroup(function (u) { return U[u.type].air && u.state === 'base' && u.base === +arg; }); break;
     case 'selcon': app.selCon = +arg; app.selNode = null; var c = st.con[st.side][arg]; if (c) centerOn(c.x, c.y); app.tab = 'units'; break;
