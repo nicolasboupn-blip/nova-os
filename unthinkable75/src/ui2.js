@@ -18,7 +18,7 @@ function metaOf(st) { return { side: st.side, diff: st.diff, day: W.dayOf(st), t
 function saveSlot() { if (!app.st || !app.slot) return; try { Store.set(slotKey(app.slot), JSON.stringify({ v: 2, saved: Date.now(), meta: metaOf(app.st), state: app.st })); } catch (e) {} }
 
 /* ---------- app ---------- */
-var app = { screen: 'slots', slot: null, st: null, tab: 'units', sel: [], selNode: null, selCon: null, multi: false, addStop: false, pick: null, setup: { side: 'NATO', diff: 'normal' },
+var app = { screen: 'slots', slot: null, st: null, tab: 'units', sel: [], selNode: null, selCon: null, multi: false, addStop: false, pick: null, setup: { side: 'NATO', diff: 'normal', era: '75' },
   dock: 1, modal: null, toast: '', toastT: 0, layers: { roads: true, rails: true, air: true, cities: true, cons: true }, view: { cx: 0, cy: 0, z: 0.6 }, capH: 3, mini: false, speed: 0 };
 var UTABS = [['move', 'Movement'], ['atk', 'Attacks'], ['trk', 'Tracks'], ['task', 'Tasks'], ['hist', 'History']];
 var SPEEDS = [0, 1 / 60, 0.25, 1, 5, 15, 60, 240, 720];   // game minutes per real second
@@ -174,6 +174,12 @@ function draw() {
   // fallout + rail cuts
   st.fallout.forEach(function (f) { var p = w2s(f.x, f.y); ctx.beginPath(); ctx.arc(p[0], p[1], f.r * z, 0, 7); ctx.fillStyle = 'rgba(190,220,60,.16)'; ctx.fill(); ctx.strokeStyle = 'rgba(210,240,70,.6)'; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]); });
   st.cuts.forEach(function (c) { var p = w2s(c.x, c.y); ctx.strokeStyle = '#ff6b5b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p[0] - 5, p[1] - 5); ctx.lineTo(p[0] + 5, p[1] + 5); ctx.moveTo(p[0] + 5, p[1] - 5); ctx.lineTo(p[0] - 5, p[1] + 5); ctx.stroke(); });
+  // air-defence coverage circles (yours always, enemy only once identified)
+  if (z > 0.12) {
+    var samDraw = function (x, y, r, sd) { var pq = w2s(x, y); if (pq[0] < -r * z || pq[1] < -r * z || pq[0] > cw + r * z || pq[1] > ch + r * z) return; ctx.beginPath(); ctx.arc(pq[0], pq[1], r * z, 0, 7); ctx.fillStyle = sd === side ? 'rgba(80,160,255,.07)' : 'rgba(255,90,70,.08)'; ctx.fill(); ctx.setLineDash([3, 5]); ctx.lineWidth = 1.2; ctx.strokeStyle = sd === side ? 'rgba(110,175,255,.55)' : 'rgba(255,110,90,.65)'; ctx.stroke(); ctx.setLineDash([]); };
+    st.units.forEach(function (ua) { var da = U[ua.type]; if (ua.side === side && da.cls === 'aa' && ua.str > 0 && !ua.cargoed) samDraw(ua.x, ua.y, da.rng, side); });
+    for (var cid in con) { var cq = con[cid]; if (cq.lv === 'id' && cq.type && U[cq.type].cls === 'aa') samDraw(cq.x, cq.y, U[cq.type].rng, W.OTHER[side]); }
+  }
   // cities
   if (app.layers.cities) for (var i = 0; i < M.cities.length; i++) {
     var C = M.cities[i], p = w2s(C[1], C[2]); if (!on(p)) continue; var cd = st.cd[i], pop = C[3];
@@ -665,9 +671,11 @@ function renderSlots() {
   return h + '<div class="slot closecard"><button data-a="close" style="width:100%">Close</button></div></div>';
 }
 function renderSetup() {
-  var s = app.setup, h = '<div class="hero"><h1>New <b>campaign</b></h1><p>Slot ' + app.slot + '</p></div><div class="page scroll"><div class="lbl">Side</div>';
+  var s = app.setup, h = '<div class="hero"><h1>New <b>campaign</b></h1><p>Slot ' + app.slot + '</p></div><div class="page scroll"><div class="lbl">Era</div><div class="seg"><button class="' + (s.era !== 'm' ? 'sel' : '') + '" data-a="setera:75">1975 Cold War</button><button class="' + (s.era === 'm' ? 'sel' : '') + '" data-a="setera:m">2027 Modern</button></div>' + (s.era === 'm' ? '<div class="note">Modern: NATO vs Russia and Belarus on the Baltic / Poland front. Typhoons, F-35s, Leopard 2, HIMARS, Patriot, drones and Iskanders. You command NATO.</div>' : '') + '<div class="lbl">Side</div>';
+  if (s.era === 'm') h += '<button class="opt sel" data-a="setside:NATO"><b>NATO: hold the Baltic front</b>Defend Poland and the Baltic states, then push east into Belarus and Kaliningrad.</button>'; else {
   h += '<button class="opt ' + (s.side === 'NATO' ? 'sel' : '') + '" data-a="setside:NATO"><b>NATO: strike east</b>Better kit and initiative, outnumbered. Break through from the Fulda Gap before your home front gives out.</button>';
   h += '<button class="opt ' + (s.side === 'PACT' ? 'sel' : '') + '" data-a="setside:PACT"><b>Warsaw Pact: crush the West</b>Mass and depth. Absorb the first blow, then counter-attack and overrun the Rhine.</button>';
+  }
   h += '<div class="lbl">AI difficulty</div><div class="seg">' + ['easy', 'normal', 'hard'].map(function (d) { return '<button class="' + (s.diff === d ? 'sel' : '') + '" data-a="setdiff:' + d + '">' + d + '</button>'; }).join('') + '</div>';
   h += '<div class="note">Every campaign starts with a paused deployment phase: move your units and base your aircraft, then press START WAR.</div>';
   return h + '<div style="display:flex;gap:8px"><button data-a="home" style="flex:1">Back</button><button class="pri" data-a="start" style="flex:2">Start campaign</button></div></div>';
@@ -731,7 +739,7 @@ function renderModal() {
 function nearestCity(x, y) { var b = '', bd = 1e9; M.cities.forEach(function (c) { var d = W.dist(x, y, c[1], c[2]); if (d < bd) { bd = d; b = c[0]; } }); return b; }
 
 /* ---------- actions ---------- */
-function openSlot(n) { var d = readSlot(n); if (!d || !d.state || d.v !== 2) return false; app.slot = n; app.st = d.state; app.sel = []; app.selNode = null; app.selCon = null; app.pick = null; app.speed = 0; app.tab = app.st.deploy ? 'manage' : 'units'; app.screen = app.st.ended ? 'end' : 'game'; var f = W.ll(9.7, 50.5); app.view = { cx: f.x, cy: f.y, z: 0.55 }; return true; }
+function openSlot(n) { var d = readSlot(n); if (!d || !d.state || d.v !== 2) return false; app.slot = n; app.st = d.state; app.sel = []; app.selNode = null; app.selCon = null; app.pick = null; app.speed = 0; app.tab = app.st.deploy ? 'manage' : 'units'; app.screen = app.st.ended ? 'end' : 'game'; var f = d.state.era === 'm' ? W.ll(23.0, 53.5) : W.ll(9.7, 50.5); app.view = { cx: f.x, cy: f.y, z: 0.55 }; return true; }
 function selectGroup(f) { var st = app.st; app.sel = ownUnits().filter(f).map(function (u) { return u.id; }); app.selNode = null; app.selCon = null; app.tab = 'units'; }
 document.addEventListener('click', function (ev) {
   var t = ev.target.closest('[data-a]'); if (!t) return; var parts = t.getAttribute('data-a').split(':'), a = parts[0], arg = parts.slice(1).join(':'), st = app.st;
@@ -741,8 +749,8 @@ document.addEventListener('click', function (ev) {
     case 'home': saveSlot(); app.screen = 'slots'; app.st = null; break;
     case 'menu': saveSlot(); app.speed = 0; app.screen = 'slots'; app.st = null; break;
     case 'new': app.slot = +arg; app.screen = 'setup'; break;
-    case 'setside': app.setup.side = arg; break; case 'setdiff': app.setup.diff = arg; break;
-    case 'start': if (app.screen === 'setup') { app.st = W.newGame({ side: app.setup.side, diff: app.setup.diff }); app.sel = []; app.speed = 0; app.tab = 'manage'; app.screen = 'game'; var f = W.ll(9.7, 50.5); app.view = { cx: f.x, cy: f.y, z: 0.55 }; saveSlot(); }
+    case 'setera': app.setup.era = arg; if (arg === 'm') app.setup.side = 'NATO'; break; case 'setside': app.setup.side = arg; break; case 'setdiff': app.setup.diff = arg; break;
+    case 'start': if (app.screen === 'setup') { app.st = W.newGame({ side: app.setup.side, diff: app.setup.diff, era: app.setup.era }); app.sel = []; app.speed = 0; app.tab = 'manage'; app.screen = 'game'; var f = app.st.era === 'm' ? W.ll(23.0, 53.5) : W.ll(9.7, 50.5); app.view = { cx: f.x, cy: f.y, z: 0.55 }; saveSlot(); }
       else if (st) { W.startWar(st); app.speed = 3; app.tab = 'units'; saveSlot(); toast('The war begins.'); } break;
     case 'cont': if (openSlot(+arg)) break; return;
     case 'reset': app.modal = { type: 'reset', n: +arg }; break;
@@ -790,7 +798,7 @@ document.addEventListener('click', function (ev) {
     case 'save': saveSlot(); toast('Saved.'); return;
     case 'zin': app.view.z *= 1.5; clampView(); bgDirty = true; return;
     case 'zout': app.view.z /= 1.5; clampView(); bgDirty = true; return;
-    case 'home-view': { var f2 = W.ll(9.7, 50.5); centerOn(f2.x, f2.y, 0.55); } return;
+    case 'home-view': { var f2 = app.st.era === 'm' ? W.ll(23.0, 53.5) : W.ll(9.7, 50.5); centerOn(f2.x, f2.y, 0.55); } return;
     case 'mini': window.U75.setMini(true); return;
   }
   render();
