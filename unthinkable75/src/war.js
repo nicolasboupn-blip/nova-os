@@ -224,6 +224,7 @@ ship('ropucha', 'PACT', 'Ropucha-class landing ship', 'amphib', 40, { d: 3, lift
 ship('sovtrans', 'PACT', 'Merchant sealift ship', 'transport', 33, { d: 1, lift: 3, cost: 6, eta: 24 });
 
 var ERA = '75';
+function setStance(st, ids, v) { var n = 0; st.units.forEach(function (u) { if (ids.indexOf(u.id) >= 0 && u.side === st.side && (U[u.type].ground || U[u.type].naval)) { u.stance = v; n++; } }); return n; }
 function setEra(e) { ERA = e || '75'; G.bloc0 = ERA === 'm' ? blocModern() : G.bloc0_75; }
 /* ============================================================ MODERN ERA (2027): NATO vs Russia / Belarus */
 function mg(id, side, n, cls, sp, a, d, sight, cost, eta, tier, extra) { extra = extra || {}; extra.era = 'm'; return gnd(id, side, n, cls, sp, a, d, sight, cost, eta, tier, extra); }
@@ -742,7 +743,7 @@ function missileFire(st, u, o, dt) {
       if (dist(e.x, e.y, cx, cy) > 2.8) return;
       var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'aa' || ed.cls === 'arty' || ed.cls === 'ssm' || ed.air) ? 1.7 : 1;
       var dm = d.cdmg * (u.str / 100) * supF(u) * soft * rr(st, 0.7, 1.3) / (ed.d * (e.dig > 0 ? 1 + 0.3 * e.dig : 1) + 1.5);
-      e.str -= dm; e.mor -= dm * 0.9; e.bt = 60; hit++;
+      e.str -= dm; e.mor -= dm * 0.9; e.bt = 60; e.hit = st.t; hit++;
       if (e.side === st.side) ev(st, 'battle', ed.n + ' hit by a missile', e.x, e.y);
       uhist(st, e, 'Hit by a ' + d.mname + ' missile (str ' + Math.round(Math.max(0, e.str)) + '%).');
       if (e.str <= 6) { u.kills++; uhist(st, u, 'Destroyed ' + ed.n + ' with a missile.'); killUnit(st, e, u.side); }
@@ -761,7 +762,7 @@ function volley(st, u, o) {
     if (dist(e.x, e.y, cx, cy) > 3.6) return;
     var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'aa' || ed.cls === 'arty') ? 1.5 : 1;
     var dm = d.a * (u.str / 100) * supF(u) * morF(u) * 1.6 * soft / (ed.d * (e.dig > 0 ? 1 + 0.45 * e.dig : 1) + 2) * rr(st, 0.7, 1.3);
-    e.str -= dm; e.mor -= dm * 0.8; e.bt = 60; e.dig = Math.max(0, e.dig - 0.03);
+    e.str -= dm; e.mor -= dm * 0.8; e.bt = 60; e.hit = st.t; e.dig = Math.max(0, e.dig - 0.03);
     if (e.side === st.side) ev(st, 'battle', ed.n + ' is being shelled', e.x, e.y);
     uhist(st, e, 'Under artillery fire (str ' + Math.round(Math.max(0, e.str)) + '%).');
     if (e.str <= 6) { u.kills++; uhist(st, u, 'Destroyed ' + ed.n + ' with artillery.'); killUnit(st, e, u.side); }
@@ -1032,7 +1033,7 @@ function fireMissiles(st, a, b) {
     st.fx.push({ k: 'shell', x0: a.x, y0: a.y, x1: b.x + rr(st, -1, 1), y1: b.y + rr(st, -1, 1), t: st.t, s: a.side, m: 1 });
   }
   var dm = hits * (da.mdmg || 22) * (a.mor > 30 ? 1 : 0.6) / (1 + 0.12 * (db.d - 3 > 0 ? db.d - 3 : 0));
-  b.str -= dm; b.mor -= dm * 0.5; b.bt = 60;
+  b.str -= dm; b.mor -= dm * 0.5; b.bt = 60; b.hit = st.t;
   var msg = da.n.split(' (')[0] + ' fired ' + n + ' ' + (da.mname || 'missiles') + ' at ' + db.n.split(' (')[0] + ': ' + hits + ' hit' + (hits === 1 ? '' : 's') + ' (' + Math.floor(a.msl) + ' left).';
   uhist(st, a, 'Fired ' + n + ' ' + (da.mname || 'missiles') + ' (' + hits + ' hits, ' + Math.floor(a.msl) + ' left).');
   if (b.side === st.side) { logm(st, msg, 'bad'); if (st.set.pause.battle) ev(st, 'battle', db.n + ' hit by missiles', b.x, b.y); } else if (a.side === st.side) logm(st, msg, hits ? 'good' : '');
@@ -1043,6 +1044,7 @@ function navalCombat(st, dt, ships) {
   ships.forEach(function (a) {
     if (a.str <= 0) return; var da = U[a.type];
     con = st.con[a.side];
+    var stN = a.stance || 'aggr'; if (stN === 'neut') return; if (stN === 'pass' && !(st.t - (a.hit || -1e9) < 30)) return;
     // ---- against ships
     if (da.msl) {
       if (a.msl < da.msl && ownCityNear(st, a.side, a.x, a.y, 15) && !(a.bt > 0)) a.msl = Math.min(da.msl, a.msl + 0.5 * dt / 60);
@@ -1136,16 +1138,24 @@ function combat(st, dt) {
   st.units.forEach(function (u) {
     if (u.str <= 0 || u.broken) return;
     var d = U[u.type]; if (!d.ground || d.heli) return;
-    var isArty = d.cls === 'arty', R = isArty ? d.rng : 9;
+    var isArty = d.cls === 'arty', stance = u.stance || 'aggr';
+    var R = isArty ? d.rng : (stance === 'aggr' ? Math.max(9, zoneR(u)) : 9);
     var canFire = d.a > 0 && (d.cls === 'gnd' || d.cls === 'recon' || isArty);
     if (!canFire) return;
+    if (stance === 'neut') return;                                             // neutral: never opens fire by itself
+    if (stance === 'pass' && !(st.t - (u.hit || -1e9) < 30)) return;          // passive: only shoots back after being attacked
     var o = u.orders[0], moving = o && o.k === 'move'; if (o && o.k === 'fire') return;
-    var best = null, bd = 1e9;
+    var tg = [];
     nearbyH(h, size, u.x, u.y, R, function (e) {
+<<<<<<< HEAD
       if (e.side === u.side || e.str <= 0 || e.hidden) return; var dd = dist(u.x, u.y, e.x, e.y); if (dd <= R && dd < bd) { bd = dd; best = e; }
+=======
+      if (e.side === u.side || e.str <= 0) return; var dd = dist(u.x, u.y, e.x, e.y); if (dd <= R) tg.push([dd, e]);
+>>>>>>> 4b65034 (Unthinkable: unit stances (aggressive/passive/neutral), aggressive fires at everything in its circle)
     });
-    if (!best) return;
+    if (!tg.length) return;
     if (moving && !isArty) return;
+<<<<<<< HEAD
     if (u.hidden && bd > 4) return;   // an ambusher waits for the enemy to come close
     var base = d.a * (u.str / 100) * supF(u) * morF(u);
     if (isArty) base *= 0.9;
@@ -1157,8 +1167,23 @@ function combat(st, dt) {
     var dd2 = 3.2 * base * mult * soft / (defv + 2) * dt / 60;
     dmg[best.id] = (dmg[best.id] || 0) + dd2; hurt[best.id] = best; src[best.id] = u;
     if (isArty && !(u.fxT > st.t)) { u.fxT = st.t + 9; for (var fk = 0; fk < 2; fk++) st.fx.push({ k: 'shell', x0: u.x, y0: u.y, x1: best.x + rr(st, -2, 2), y1: best.y + rr(st, -2, 2), t: st.t, s: u.side }); }
+=======
+    tg.sort(function (a, b) { return a[0] - b[0]; });
+    var nT = (stance === 'aggr' && !isArty) ? Math.min(4, tg.length) : 1, share = nT > 1 ? Math.min(1.6, 1 + 0.2 * (nT - 1)) / nT : 1;   // aggressive: fires at everything in its circle
+    var base = d.a * (u.str / 100) * supF(u) * morF(u);
+    if (isArty) base *= 0.9;
+    for (var ti = 0; ti < nT; ti++) {
+      var best = tg[ti][1];
+      var ed = U[best.type], defv = ed.d * (best.dig > 0 ? 1 + 0.45 * best.dig : 1) * (ownCityNear(st, best.side, best.x, best.y, 7) ? 1.25 : 1);
+      var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'ssm' || ed.cls === 'aa') ? 1.6 : ed.cls === 'arty' ? 1.3 : 1;
+      var mult = 1; if (best.dig <= 0 && u.orders[0] && u.orders[0].k === 'amove') mult = 1.1;
+      var dd2 = 3.2 * base * mult * soft / (defv + 2) * dt / 60 * share;
+      dmg[best.id] = (dmg[best.id] || 0) + dd2; hurt[best.id] = best; src[best.id] = u;
+      if (isArty && !(u.fxT > st.t) && ti === 0) { u.fxT = st.t + 9; for (var fk = 0; fk < 2; fk++) st.fx.push({ k: 'shell', x0: u.x, y0: u.y, x1: best.x + rr(st, -2, 2), y1: best.y + rr(st, -2, 2), t: st.t, s: u.side }); }
+      best.bt = 60; best.hit = st.t; u.last = best.id; best.lastBy = u.side;
+    }
+>>>>>>> 4b65034 (Unthinkable: unit stances (aggressive/passive/neutral), aggressive fires at everything in its circle)
     u.bt = 60; if (!isArty) u.sup = Math.max(0, u.sup - 0.9 * dt / 60 * 2);
-    best.bt = 60; u.last = best.id; best.lastBy = u.side;
     if (isArty) u.sup = Math.max(0, u.sup - 0.5 * dt / 60 * 2);
   });
   for (var id in dmg) {
@@ -1389,7 +1414,7 @@ function loiterAttack(st, u, o, cx, cy, R, dt) {
     if (ed.air || ed.heli) return; if (dist(e.x, e.y, cx, cy) > R) return;
     var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'arty' || ed.cls === 'ssm' || ed.cls === 'aa') ? 1.6 : 1;
     var dm = ps * dt * soft * rr(st, 0.6, 1.4) / (ed.d * (e.dig > 0 ? 1 + 0.3 * e.dig : 1) + 2);
-    e.str -= dm; e.mor -= dm * 0.7; e.bt = 40; hits++;
+    e.str -= dm; e.mor -= dm * 0.7; e.bt = 40; e.hit = st.t; hits++;
     if (e.side === st.side && !(o.alerted > st.t)) { o.alerted = st.t + 60; ev(st, 'battle', ed.n + ' is under air attack', e.x, e.y); }
     if (e.str <= 6) { u.kills = (u.kills || 0) + 1; uhist(st, u, 'Destroyed ' + ed.n + ' from the air.'); killUnit(st, e, u.side); }
   });
@@ -1884,8 +1909,13 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
+<<<<<<< HEAD
   outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, dmgInfo: dmgInfo, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus, killUnit: killUnit, SAM_CD: SAM_CD };
+=======
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, dmgInfo: dmgInfo, setStance: setStance, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus };
+>>>>>>> 4b65034 (Unthinkable: unit stances (aggressive/passive/neutral), aggressive fires at everything in its circle)
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

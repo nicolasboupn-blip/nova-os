@@ -500,7 +500,7 @@ function unitHead(su) {
   var h = '';
   if (su.length === 1) {
     var u = su[0], d = U[u.type];
-    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + (u.riders && u.riders.length ? '<div class="s">Carrying: ' + u.riders.map(function (id) { var r = W.unitById(app.st, id); return r ? esc(U[r.type].n.split(' (')[0]) : ''; }).join(', ') + '</div>' : (d.carry ? '<div class="s">Carrier: holds ' + d.carry + ' infantry unit. Infantry: BOARD, then tap this unit.</div>' : '')) + '</div><div class="bars">' +
+    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">' + ({ aggr: '🔥 Aggressive', pass: '🛡 Passive', neut: '🕊 Neutral' }[u.stance || 'aggr']) + ' · Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + (u.riders && u.riders.length ? '<div class="s">Carrying: ' + u.riders.map(function (id) { var r = W.unitById(app.st, id); return r ? esc(U[r.type].n.split(' (')[0]) : ''; }).join(', ') + '</div>' : (d.carry ? '<div class="s">Carrier: holds ' + d.carry + ' infantry unit. Infantry: BOARD, then tap this unit.</div>' : '')) + '</div><div class="bars">' +
       '<span>STR</span>' + bar(u.str, u.str > 60 ? '' : u.str > 30 ? 'w' : 'r') + '<span>SUPPLY</span>' + bar(u.sup, u.sup > 40 ? '' : u.sup > 15 ? 'w' : 'r') + '<span>MORALE</span>' + bar(u.mor, u.mor > 50 ? '' : u.mor > 25 ? 'w' : 'r') + (d.air ? '<span>FUEL</span>' + bar(u.fuel / (d.rad * 2) * 100, 'c') : '') + (d.msl ? '<span>' + esc(d.mname || 'MISSILES').toUpperCase() + ' ' + Math.floor(u.msl) + '/' + d.msl + '</span>' + bar(u.msl / d.msl * 100, u.msl >= 1 ? 'c' : 'r') : '') + '</div></div>';
   } else {
     var types = {}; su.forEach(function (u) { types[U[u.type].n] = (types[U[u.type].n] || 0) + 1; });
@@ -547,6 +547,12 @@ function reachOf(u) { var d = U[u.type]; return d.air ? d.rad * W.rangeBonus(app
 function uAtk(su, g) {
   var st = app.st, h = ''; if (st.deploy) return hint('Attack orders unlock when the war starts.');
   var nvA = g.nv.some(function (d) { return d.sa > 0; }), cas = g.roles.cas, strike = g.roles.strike;
+  if (g.gnd || g.nav || g.arty || g.atk) {
+    var stn = {}, kk = ['aggr', 'pass', 'neut']; su.forEach(function (x) { var d0 = U[x.type]; if (d0.ground || d0.naval) stn[x.stance || 'aggr'] = 1; });
+    var one = Object.keys(stn).length === 1 ? Object.keys(stn)[0] : null;
+    h += '<div class="lbl">Stance (what it does by itself)</div><div class="chips">' + chip('stance:aggr', '🔥 AGGRESSIVE', '', one === 'aggr') + chip('stance:pass', '🛡 PASSIVE', '', one === 'pass') + chip('stance:neut', '🕊 NEUTRAL', '', one === 'neut') + '</div>' +
+      hint(one === 'pass' ? 'Passive: only shoots back after it has been attacked.' : one === 'neut' ? 'Neutral: never fires on its own. Explicit barrage and missile orders still work.' : one === 'aggr' ? 'Aggressive (default): attacks every enemy inside its circle.' : 'Mixed stances in this selection.');
+  }
   h += hint('Pick how to attack, then tap the target on the map (a red ? or unit works).');
   if (app.selCon != null && st.con[st.side][app.selCon]) h += conInfo();
   h += '<div class="lbl">Ground and sea</div><div class="chips">';
@@ -831,6 +837,7 @@ document.addEventListener('click', function (ev) {
     case 'speed': if (st && !st.deploy) { app.speed = +arg; paintTop(); renderDock(true); } return;
     case 'ap': st.set.pause[arg] = !st.set.pause[arg]; renderDock(true); return;
     case 'layer': app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
+    case 'stance': { var nS = W.setStance(st, app.sel, arg); toast(nS + (nS === 1 ? ' unit' : ' units') + ' set to ' + ({ aggr: 'aggressive', pass: 'passive', neut: 'neutral' }[arg])); renderDock(true); return; }
     case 'utab': app.utab = arg; renderDock(true); return;
     case 'simple': app.simple = arg === '1'; renderDock(true); return;
     case 'statside': app.statSide = arg; app.statOpen = null; renderDock(true); return;
