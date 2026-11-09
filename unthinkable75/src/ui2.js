@@ -34,12 +34,16 @@ function decode(a) { var x = a[0], y = a[1], out = [x, y]; for (var i = 2; i < a
 function prep(list, pick) {
   return list.map(function (it) { var a = pick ? it[1] : it, p = decode(a), x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (var i = 0; i < p.length; i += 2) { if (p[i] < x0) x0 = p[i]; if (p[i] > x1) x1 = p[i]; if (p[i + 1] < y0) y0 = p[i + 1]; if (p[i + 1] > y1) y1 = p[i + 1]; } return { p: p, b: [x0, y0, x1, y1], t: pick ? it[0] : 0 }; });
 }
-function initGeo() {
-  geo = { land: prep(M.land), borders: prep(M.borders), iron: prep(M.iron), roads: prep(M.roadsD, true), rails: prep(M.rails) };
+function makeBlocImg() {
   var c = document.createElement('canvas'); c.width = G.w; c.height = G.h; var x = c.getContext('2d'), img = x.createImageData(G.w, G.h);
   var col = { 0: [0, 0, 0, 0], 1: [38, 78, 125, 255], 2: [125, 45, 42, 255], 3: [70, 70, 60, 255] };
   for (var i = 0; i < G.n; i++) { var k = col[G.bloc[i]]; img.data[i * 4] = k[0]; img.data[i * 4 + 1] = k[1]; img.data[i * 4 + 2] = k[2]; img.data[i * 4 + 3] = k[3]; }
   x.putImageData(img, 0, 0); geo.bloc = c;
+  geo.blocV = app.st ? app.st.blocV : -1;
+}
+function initGeo() {
+  geo = { land: prep(M.land), borders: prep(M.borders), iron: prep(M.iron), roads: prep(M.roadsD, true), rails: prep(M.rails) };
+  makeBlocImg();
 }
 
 /* ---------- canvas + view ---------- */
@@ -160,6 +164,8 @@ var OMETA = { move: { c: '#7fd0ff', l: 'MOVE HERE', s: 'flag', dash: [1, 0] }, a
 var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
 function draw() {
   var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
+  if (geo.stRef !== st) { geo.stRef = st; W.refreshBloc(st); }
+  if (geo.blocV !== st.blocV) { makeBlocImg(); bgDirty = true; }
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.fillStyle = '#0a1a24'; ctx.fillRect(0, 0, cw, ch);
   var s = z / bgView.z; ctx.drawImage(bg, cw / 2 - cw / 2 * s + (bgView.cx - v.cx) * z, ch / 2 - ch / 2 * s + (bgView.cy - v.cy) * z, cw * s, ch * s);
@@ -262,7 +268,7 @@ function draw() {
       ctx.beginPath(); ctx.arc(pp[0], pp[1], d0.rad * W.rangeBonus(st, u0) * z, 0, 7); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([2, 6]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
     }
   }
-  if (app.pick && app.pick.kind === 'fire') app.sel.forEach(function (id) { var ua = W.unitById(st, id); if (!ua || U[ua.type].cls !== 'arty') return; var pa2 = upos(ua); ctx.beginPath(); ctx.arc(pa2[0], pa2[1], U[ua.type].rng * z, 0, 7); ctx.fillStyle = 'rgba(255,70,50,.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,90,70,.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.6; ctx.stroke(); ctx.setLineDash([]); });
+  if (app.pick && app.pick.kind === 'fire') app.sel.forEach(function (id) { var ua = W.unitById(st, id); if (!ua || (U[ua.type].cls !== 'arty' && U[ua.type].cls !== 'ssm')) return; var pa2 = upos(ua); ctx.beginPath(); ctx.arc(pa2[0], pa2[1], U[ua.type].rng * z, 0, 7); ctx.fillStyle = 'rgba(255,70,50,.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,90,70,.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.6; ctx.stroke(); ctx.setLineDash([]); });
   if (app.pick && app.pick.kind === 'nuke' && app.pick.at) { var pn = w2s(app.pick.at.x, app.pick.at.y); ctx.beginPath(); ctx.arc(pn[0], pn[1], app.pick.R * z, 0, 7); ctx.fillStyle = 'rgba(232,255,90,.18)'; ctx.fill(); ctx.strokeStyle = '#e8ff5a'; ctx.lineWidth = 2; ctx.stroke(); }
   // artillery shells (red dots) and craters
   var now = performance.now(), fxs = st.fx || [], ownU = ownUnits();
@@ -488,7 +494,7 @@ function unitHead(su) {
 function groupKinds(su) {
   var g = { gnd: 0, nav: 0, air: 0, heli: 0, log: 0, arty: 0, atk: 0 }, roles = {}, nv = [];
   su.forEach(function (u) { var d = U[u.type];
-    if (d.naval) { g.nav++; nv.push(d); } else if (d.air) g.air++; else if (d.heli) g.heli++; else if (d.cls === 'train' || d.cls === 'convoy') g.log++; else if (d.ground) { g.gnd++; if (d.cls === 'arty') g.arty++; if (d.a > 0) g.atk++; }
+    if (d.naval) { g.nav++; nv.push(d); } else if (d.air) g.air++; else if (d.heli) g.heli++; else if (d.cls === 'train' || d.cls === 'convoy') g.log++; else if (d.ground) { g.gnd++; if (d.cls === 'arty') g.arty++; if (d.cls === 'ssm') g.ssm = (g.ssm || 0) + 1; if (d.a > 0) g.atk++; }
     (d.roles || []).forEach(function (r) { roles[r] = 1; }); if (d.heli && d.a2g) roles.cas = 1; });
   g.roles = roles; g.nv = nv; return g;
 }
@@ -519,7 +525,7 @@ function routeList(u) {
   });
   return h;
 }
-function reachOf(u) { var d = U[u.type]; return d.air ? d.rad * W.rangeBonus(app.st, u) : d.heli ? d.rad : d.cls === 'arty' ? d.rng : d.naval ? (d.rng || 20) : 12; }
+function reachOf(u) { var d = U[u.type]; return d.air ? d.rad * W.rangeBonus(app.st, u) : d.heli ? d.rad : (d.cls === 'arty' || d.cls === 'ssm') ? d.rng : d.naval ? (d.rng || 20) : 12; }
 function uAtk(su, g) {
   var st = app.st, h = ''; if (st.deploy) return hint('Attack orders unlock when the war starts.');
   var nvA = g.nv.some(function (d) { return d.sa > 0; }), cas = g.roles.cas, strike = g.roles.strike;
@@ -528,8 +534,9 @@ function uAtk(su, g) {
   h += '<div class="lbl">Ground and sea</div><div class="chips">';
   if (g.atk || g.nav) h += (g.atk || nvA ? chip('pick:amove', '⚔ ATTACK-MOVE') + chip('pick:hunt', '🎯 HUNT A CONTACT') : '');
   if (g.arty) h += chip('pick:fire', '💥 ARTILLERY BARRAGE') + chip('firem', '⏱ ' + (app.fireM || 60) + ' min');
+  if (g.ssm) h += chip('pick:fire', '🚀 CONVENTIONAL MISSILE STRIKE') + chip('firem', '⏱ ' + (app.fireM || 60) + ' min');
   if (g.nv.some(function (d) { return d.shore > 0; })) h += chip('pick:bombard', '🚢 SHELL THE COAST');
-  if (!(g.atk || g.nav || g.arty)) h += '<span class="dim">This selection has no ground attack.</span>';
+  if (!(g.atk || g.nav || g.arty || g.ssm)) h += '<span class="dim">This selection has no ground attack.</span>';
   h += '</div>';
   if (g.air || g.heli || g.nv.some(function (d) { return d.cvw; })) {
     h += '<div class="lbl">Air</div><div class="chips">' + (cas ? chip('pick:cas', '💣 GROUND ATTACK') : '') + (strike ? chip('pick:strike', '🏭 STRIKE CITY / AIRFIELD') + chip('pick:cut', '🚂 CUT RAIL') : '') + (g.nv.some(function (d) { return d.cvw; }) ? chip('pick:strike', '✈ CARRIER STRIKE') + chip('pick:cas', '✈ CARRIER GROUND ATTACK') : '') + (!cas && !strike && !g.nv.length ? '<span class="dim">No attack role.</span>' : '') + '</div>';
@@ -541,7 +548,7 @@ function uAtk(su, g) {
   h += '<div class="lbl">Known enemies in reach (' + list.length + ')</div>';
   if (!list.length) h += '<div class="dim">None. Recon and sensors reveal more.</div>';
   list.slice(0, 6).forEach(function (t) {
-    var d2 = U[t.c.type] || {}, mode = g.arty ? 'fire' : (g.air || g.heli) ? 'cas' : 'hunt', lab = mode === 'fire' ? 'SHELL' : mode === 'cas' ? 'ATTACK' : 'HUNT';
+    var d2 = U[t.c.type] || {}, mode = (g.arty || g.ssm) ? 'fire' : (g.air || g.heli) ? 'cas' : 'hunt', lab = mode === 'fire' ? 'SHELL' : mode === 'cas' ? 'ATTACK' : 'HUNT';
     h += '<div class="rrow"><div class="g"><div class="n">' + esc(d2.n || 'Contact') + '</div><div class="s">' + Math.round(t.d) + ' km ' + '· str ' + t.c.str + '%</div></div><button data-a="tgt:' + t.c.id + ':' + mode + '">' + lab + '</button></div>';
   });
   if (su.length === 1) h += '<div class="lbl">Record</div><div class="kv"><span>Kills</span><span>' + (su[0].kills || 0) + '</span><span>Last engaged</span><span>' + (su[0].bt > 0 ? 'just now' : 'quiet') + '</span></div>';

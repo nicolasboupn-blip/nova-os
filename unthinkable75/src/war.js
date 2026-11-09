@@ -17,6 +17,7 @@ function initMap(M) {
   MAP = M; G.w = M.gw; G.h = M.gh; G.cell = M.cell; G.n = G.w * G.h;
   G.bloc = new Uint8Array(G.n); var p = 0;
   for (var i = 0; i < M.grid.length; i += 2) { var v = M.grid[i], r = M.grid[i + 1]; for (var k = 0; k < r; k++) G.bloc[p++] = v; }
+  G.bloc0 = new Uint8Array(G.bloc);
   G.road = decodeBits(M.roadBits, G.n); G.rail = decodeBits(M.railBits, G.n);
   // rail graph is dilated by one cell so small gaps in the source data do not cut the network
   G.railD = new Uint8Array(G.n);
@@ -136,8 +137,8 @@ gnd('mortar', 'NATO', 'Light artillery battalion (105 mm / mortars)', 'arty', 30
 gnd('eng', 'NATO', 'Combat engineers', 'eng', 28, 1, 3, 8, 3, 6, 1);
 gnd('train', 'NATO', 'Supply train', 'train', 55, 0, 1, 6, 3, 6, 1, { cap: 60 });
 gnd('convoy', 'NATO', 'Truck convoy', 'convoy', 45, 0, 1, 6, 2, 4, 1, { cap: 25 });
-gnd('lance', 'NATO', 'Lance missile battalion', 'ssm', 30, 0, 2, 8, 8, 12, 2, { rng: 120, nuke: true });
-gnd('pershing', 'NATO', 'Pershing missile battalion', 'ssm', 30, 0, 2, 8, 14, 16, 2, { rng: 740, nuke: true });
+gnd('lance', 'NATO', 'Lance missile battalion', 'ssm', 30, 0, 2, 8, 8, 12, 2, { rng: 120, nuke: true, msl: 6, cdmg: 20, mname: 'Lance' });
+gnd('pershing', 'NATO', 'Pershing missile battalion', 'ssm', 30, 0, 2, 8, 14, 16, 2, { rng: 740, nuke: true, msl: 4, cdmg: 28, mname: 'Pershing' });
 gnd('ah1', 'NATO', 'Attack helicopters (AH-1 Cobra / Bo 105)', 'heli_atk', 220, 4, 2, 25, 8, 12, 1, { heli: true, rad: 160, a2g: 6, a2a: 1 });
 gnd('ch47', 'NATO', 'Transport helicopters (CH-47 / UH-1)', 'heli_trans', 230, 0, 1, 25, 4, 8, 1, { heli: true, rad: 260, lift: 1 });
 // ---- NATO air
@@ -148,7 +149,8 @@ air('a7', 'NATO', 'A-7D Corsair II wing', 'strike', 800, 700, 2, 7, 6, 2, ['cas'
 air('f111', 'NATO', 'F-111E strike wing', 'strike', 1200, 1400, 3, 9, 12, 2, ['strike', 'cas'], { nuke: true });
 air('rf4', 'NATO', 'RF-4C recon wing', 'recon', 1100, 1200, 1, 0, 5, 1, ['recon']);
 air('f15', 'NATO', 'F-15A Eagle wing', 'fighter', 1300, 900, 10, 4, 12, 3, ['cap', 'cas'], { note: 'Alt-history: the Eagle only entered service in 1976, Europe 1977.' });
-air('b52', 'NATO', 'B-52 bomber wing', 'bomber', 800, 3000, 0, 14, 14, 3, ['strike'], { note: 'Heavy bombers fly from far outside the theatre.' });
+air('b52', 'NATO', 'B-52 bomber wing', 'bomber', 800, 3000, 0, 14, 14, 3, ['strike', 'cas'], { nuke: true, note: 'Heavy bombers fly from far outside the theatre.' });
+air('vulcan', 'NATO', 'Avro Vulcan B.2 bomber wing (RAF)', 'bomber', 900, 2800, 0, 11, 11, 1, ['strike'], { nuke: true, note: 'RAF V-bomber; real 1975 nuclear strike force.' });
 air('ec121', 'NATO', 'EC-121 Warning Star AEW', 'awacs', 450, 1000, 0, 0, 6, 2, ['awacs'], { radar: 220, note: 'Real 1975 airborne early warning.' });
 air('e3', 'NATO', 'E-3 Sentry AWACS', 'awacs', 700, 1500, 0, 0, 10, 3, ['awacs'], { radar: 400, note: 'Alt-history: the E-3 entered service in 1977.' });
 air('kc135', 'NATO', 'KC-135 tanker', 'tanker', 800, 1500, 0, 0, 5, 1, ['tanker'], { note: 'Tankers extend NATO air range while they are based safely.' });
@@ -164,9 +166,9 @@ gnd('pmortar', 'PACT', 'Light artillery battalion (D-30 / 120 mm mortars)', 'art
 gnd('peng', 'PACT', 'Combat engineers', 'eng', 28, 1, 3, 8, 3, 6, 1);
 gnd('ptrain', 'PACT', 'Supply train', 'train', 55, 0, 1, 6, 3, 6, 1, { cap: 60 });
 gnd('pconvoy', 'PACT', 'Truck convoy', 'convoy', 45, 0, 1, 6, 2, 4, 1, { cap: 25 });
-gnd('frog', 'PACT', 'FROG-7 rocket battalion', 'ssm', 40, 0, 2, 8, 6, 8, 1, { rng: 70, nuke: true });
-gnd('scud', 'PACT', 'Scud-B missile brigade', 'ssm', 30, 0, 2, 8, 9, 12, 2, { rng: 300, nuke: true });
-gnd('ss12', 'PACT', 'SS-12 Scaleboard battalion', 'ssm', 30, 0, 2, 8, 14, 16, 3, { rng: 900, nuke: true });
+gnd('frog', 'PACT', 'FROG-7 rocket battalion', 'ssm', 40, 0, 2, 8, 6, 8, 1, { rng: 70, nuke: true, msl: 8, cdmg: 16, mname: 'FROG-7' });
+gnd('scud', 'PACT', 'Scud-B missile brigade', 'ssm', 30, 0, 2, 8, 9, 12, 2, { rng: 300, nuke: true, msl: 6, cdmg: 22, mname: 'Scud-B' });
+gnd('ss12', 'PACT', 'SS-12 Scaleboard battalion', 'ssm', 30, 0, 2, 8, 14, 16, 3, { rng: 900, nuke: true, msl: 4, cdmg: 28, mname: 'SS-12' });
 gnd('mi24', 'PACT', 'Attack helicopters (Mi-24 Hind)', 'heli_atk', 230, 5, 3, 25, 8, 12, 2, { heli: true, rad: 160, a2g: 7, a2a: 1 });
 gnd('mi8', 'PACT', 'Transport helicopters (Mi-8)', 'heli_trans', 220, 0, 1, 25, 4, 8, 1, { heli: true, rad: 280, lift: 1 });
 // ---- Pact air
@@ -177,6 +179,8 @@ air('su17', 'PACT', 'Su-17M strike wing', 'strike', 900, 700, 1, 7, 7, 2, ['cas'
 air('su24', 'PACT', 'Su-24 Fencer wing', 'strike', 1200, 1300, 2, 9, 12, 3, ['strike', 'cas'], { nuke: true });
 air('mig25', 'PACT', 'MiG-25 Foxbat wing', 'fighter', 2200, 1000, 8, 1, 11, 3, ['cap', 'recon']);
 air('tu16', 'PACT', 'Tu-16 Badger regiment', 'bomber', 800, 2500, 0, 10, 10, 2, ['strike'], { nuke: true });
+air('tu22', 'PACT', 'Tu-22 Blinder regiment', 'bomber', 1400, 1800, 0, 11, 11, 2, ['strike'], { nuke: true, note: 'Supersonic Soviet bomber.' });
+air('tu95', 'PACT', 'Tu-95 Bear regiment', 'bomber', 700, 4000, 0, 14, 14, 3, ['strike', 'cas'], { nuke: true, note: 'Heavy bomber, flies from deep inside the USSR.' });
 air('tu126', 'PACT', 'Tu-126 Moss AWACS', 'awacs', 650, 1200, 0, 0, 8, 2, ['awacs'], { radar: 250, note: 'Soviet AWACS (1965-84), weak over land clutter.' });
 
 
@@ -246,7 +250,7 @@ var OOB = {
     air: [
       [7.6, 49.44, 'f4', 2], [6.7, 49.97, 'f4', 2], [6.56, 49.95, 'f4'], [7.26, 49.95, 'f104'], [7.4, 49.21, 'rf4'], [8.57, 50.03, 'kc135'], [6.1, 51.2, 'jag', 2], [6.14, 51.6, 'jag'], [6.04, 50.96, 'f104', 2],
       [7.8, 50.9, 'f104'], [11.0, 49.5, 'a7'], [9.2, 49.9, 'f104'], [10.3, 53.0, 'f104'], [9.6, 54.4, 'f104'], [11.6, 48.2, 'f4'], [-1.25, 51.93, 'f111', 2], [0.56, 52.41, 'f4'], [0.48, 52.36, 'kc135'],
-      [10.27, 45.43, 'f104'], [12.6, 46.03, 'f4'], [-0.5, 53.0, 'ec121']
+      [10.27, 45.43, 'f104'], [-0.52, 53.17, 'vulcan'], [12.6, 46.03, 'f4'], [-0.5, 53.0, 'ec121']
     ]
   },
   PACT: {
@@ -270,7 +274,7 @@ var OOB = {
       [12.7, 53.3, 'mig21'], [13.6, 51.4, 'mig23'], [11.9, 51.4, 'su7'], [12.0, 50.9, 'mig21'],
       [16.97, 52.33, 'su7'], [15.8, 53.8, 'mig21', 2], [21.6, 52.2, 'mig21'], [17.9, 53.0, 'mig23'], [15.74, 50.01, 'mig21'], [14.54, 50.12, 'mig23'], [13.57, 50.37, 'su7'], [14.6, 49.9, 'su17'],
       [19.75, 46.9, 'mig21'], [19.26, 47.37, 'su7'], [26.1, 44.5, 'mig21'], [23.4, 42.7, 'mig21'], [24.0, 54.0, 'mig23'], [27.5, 53.9, 'mig23'], [30.5, 50.4, 'mig23'],
-      [31.0, 52.4, 'su24'], [33.0, 53.0, 'tu16'], [27.5, 54.5, 'tu16'], [30.0, 50.0, 'mig25'], [13.0, 52.5, 'tu126']
+      [31.0, 52.4, 'su24'], [33.0, 53.0, 'tu16'], [31.0, 51.5, 'tu22'], [27.5, 54.5, 'tu16'], [30.0, 50.0, 'mig25'], [13.0, 52.5, 'tu126']
     ]
   }
 };
@@ -287,7 +291,8 @@ function mkUnit(st, type, side, x, y) {
   var d = U[type], u = { id: st.nid++, type: type, side: side, x: x, y: y, str: 100, sup: 100, mor: 80, orders: [], path: null, dig: 0, bt: 0, hold: 0, kills: 0, hist: [], trk: [], dist: 0 };
   if (d.air) { u.base = null; u.state = 'base'; u.rdy = 0; u.fuel = d.rad * 2; u.alt = 0; }
   if (d.heli) { u.state = 'land'; u.fuel = d.rad * 2; u.cargo = null; }
-  if (d.naval) { u.state = 'sea'; u.cl = []; u.cvRdy = 0; if (d.msl) u.msl = d.msl; }
+  if (d.naval) { u.state = 'sea'; u.cl = []; u.cvRdy = 0; }
+  if (d.msl) u.msl = d.msl;
   if (d.cls === 'train' || d.cls === 'convoy') u.load = 0;
   return u;
 }
@@ -442,7 +447,7 @@ function checkCmd(st, u, d, cmd) {
     }
     return '';
   }
-  if (k === 'fire' && !d.air && !d.naval) { if (d.cls !== 'arty') return 'Only artillery can fire barrages.'; return ''; }
+  if (k === 'fire' && !d.air && !d.naval) { if (d.cls !== 'arty' && d.cls !== 'ssm') return 'Only artillery and missile units can fire.'; if (d.cls === 'ssm' && !(u.msl >= 1)) return 'Out of missiles. Reloads near a friendly city.'; return ''; }
   if (d.air) {
     if (u.broken) return '';
     if (k === 'land' || k === 'rtb') return '';
@@ -551,11 +556,35 @@ function artyFire(st, u, o, dt) {
     followPath(u, speedOn(u, d, st) * dt / 60); u.sup = Math.max(0, u.sup - 0.35 * dt / 60); return;
   }
   u.path = null;
+  if (d.cls === 'ssm') { missileFire(st, u, o, dt); return; }
   if (u.sup < 10) { uhist(st, u, 'Out of ammunition, barrage stopped.'); u.orders.shift(); ev(st, 'idle', d.n + ' is out of shells.', u.x, u.y); return; }
   o.left = (o.left == null ? (o.mins || 90) : o.left) - dt; o.acc = (o.acc || 0) + dt;
   if (!o.began) { o.began = 1; uhist(st, u, 'Opened fire: ' + placeName(o.x, o.y) + '.'); }
   while (o.acc >= 6) { o.acc -= 6; volley(st, u, o); }
   if (o.left <= 0) { u.orders.shift(); uhist(st, u, 'Barrage finished (' + (o.vol || 0) + ' volleys).'); ev(st, 'idle', d.n + ' finished its barrage.', u.x, u.y); }
+}
+function missileFire(st, u, o, dt) {
+  var d = U[u.type];
+  o.left = (o.left == null ? (o.mins || 90) : o.left) - dt; o.acc = (o.acc || 0) + dt;
+  if (!o.began) { o.began = 1; uhist(st, u, 'Conventional missile strike ordered: ' + placeName(o.x, o.y) + '.'); }
+  while (o.acc >= 8 && u.msl >= 1) {
+    o.acc -= 8; u.msl -= 1; u.bt = 30; o.vol = (o.vol || 0) + 1;
+    var cx = o.x + rr(st, -1.2, 1.2), cy = o.y + rr(st, -1.2, 1.2), hit = 0;
+    st.fx.push({ k: 'shell', x0: u.x, y0: u.y, x1: cx, y1: cy, t: st.t, s: u.side, m: 1 });
+    st.units.forEach(function (e) {
+      if (e.side === u.side || e.str <= 0 || e.cargoed) return; var ed = U[e.type]; if (ed.air && e.state !== 'base') return; if (ed.naval && ed.sub) return;
+      if (dist(e.x, e.y, cx, cy) > 2.8) return;
+      var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'aa' || ed.cls === 'arty' || ed.cls === 'ssm' || ed.air) ? 1.7 : 1;
+      var dm = d.cdmg * (u.str / 100) * supF(u) * soft * rr(st, 0.7, 1.3) / (ed.d * (e.dig > 0 ? 1 + 0.3 * e.dig : 1) + 1.5);
+      e.str -= dm; e.mor -= dm * 0.9; e.bt = 60; hit++;
+      if (e.side === st.side) ev(st, 'battle', ed.n + ' hit by a missile', e.x, e.y);
+      uhist(st, e, 'Hit by a ' + d.mname + ' missile (str ' + Math.round(Math.max(0, e.str)) + '%).');
+      if (e.str <= 6) { u.kills++; uhist(st, u, 'Destroyed ' + ed.n + ' with a missile.'); killUnit(st, e, u.side); }
+    });
+    uhist(st, u, 'Fired a ' + d.mname + ' (' + hit + ' unit' + (hit === 1 ? '' : 's') + ' hit, ' + Math.floor(u.msl) + ' left).');
+  }
+  if (u.msl < 1) { uhist(st, u, 'Out of missiles.'); u.orders.shift(); ev(st, 'idle', d.n + ' is out of missiles.', u.x, u.y); return; }
+  if (o.left <= 0) { u.orders.shift(); ev(st, 'idle', d.n + ' finished its strike.', u.x, u.y); }
 }
 function volley(st, u, o) {
   var d = U[u.type], n = d.rng > 20 ? 4 : 3; o.vol = (o.vol || 0) + 1; u.sup = Math.max(0, u.sup - 0.22); u.bt = 30;
@@ -828,7 +857,11 @@ function killUnit(st, u, by) {
   else if (u.side === st.side) ev(st, 'info', d.n + ' destroyed.', u.x, u.y);
 }
 function ownCityNear(st, side, x, y, r) { for (var i = 0; i < MAP.cities.length; i++) if (st.cd[i].o === side && dist(x, y, MAP.cities[i][1], MAP.cities[i][2]) < r) return true; return false; }
+function reloadMissiles(st, dt) {
+  st.units.forEach(function (u) { var d = U[u.type]; if (!d.msl || d.naval || u.str <= 0 || u.cargoed) return; var o = u.orders[0]; if (o && o.k === 'fire') return; if (u.msl < d.msl && ownCityNear(st, u.side, u.x, u.y, 18)) u.msl = Math.min(d.msl, u.msl + 0.35 * dt / 60); });
+}
 function combat(st, dt) {
+  reloadMissiles(st, dt);
   var size = 20, h = hashUnits(st, size), dmg = {}, hurt = {}, src = {};
   st.units.forEach(function (u) {
     if (u.str <= 0 || u.broken) return;
@@ -913,9 +946,24 @@ function neutralViolation(st, side, name, x, y) {
   st.pol.world += side === 'NATO' ? -4 : 4; st.pol[side].coh -= 3; st.pol[side].pc = Math.max(0, st.pol[side].pc - 1);
   ev(st, 'pol', side + ' forces entered neutral ' + name + '. World opinion shifts.', x, y); logm(st, side + ' violated neutrality at ' + name + '.', side === st.side ? 'bad' : 'warn');
 }
+var BCODE = { NATO: 1, PACT: 2 }, BV = 0;
+// repaint territory: cells near a captured city take the new owner's colour (land cells of the two blocs only)
+function refreshBloc(st) {
+  G.bloc.set(G.bloc0);
+  for (var i = 0; i < MAP.cities.length; i++) {
+    var C = MAP.cities[i], o0 = OWN[C[6]], o1 = st.cd[i].o;
+    if (!o0 || !BCODE[o1] || o0 === o1) continue;
+    var R = 16 + Math.min(18, C[3] / 60), cx = Math.floor(C[1] / G.cell), cy = Math.floor(C[2] / G.cell), rc = Math.ceil(R / G.cell);
+    for (var y = cy - rc; y <= cy + rc; y++) for (var x = cx - rc; x <= cx + rc; x++) {
+      if (x < 0 || y < 0 || x >= G.w || y >= G.h) continue; var k = y * G.w + x, b = G.bloc0[k];
+      if ((b === 1 || b === 2) && dist((x + .5) * G.cell, (y + .5) * G.cell, C[1], C[2]) <= R) G.bloc[k] = BCODE[o1];
+    }
+  }
+  st.blocV = ++BV;
+}
 function flipCity(st, i, side) {
   st.units.forEach(function (u) { if (u.side === side && u.str > 0 && dist(u.x, u.y, MAP.cities[i][1], MAP.cities[i][2]) < 9 && (U[u.type].ground)) uhist(st, u, 'Took ' + MAP.cities[i][0] + '.'); });
-  var cd = st.cd[i], C = MAP.cities[i], was = cd.o; cd.o = side; cd.cp = 0; cd.stk = Math.floor(cd.stk * 0.4); cd.inf = Math.max(20, cd.inf - 25);
+  var cd = st.cd[i], C = MAP.cities[i], was = cd.o; cd.o = side; cd.cp = 0; refreshBloc(st); cd.stk = Math.floor(cd.stk * 0.4); cd.inf = Math.max(20, cd.inf - 25);
   var wv = 0.6 + C[3] / 500 + (C[5] ? 6 : 0);
   st.will[was] -= wv * 0.7; st.will[side] += wv * 0.3;
   logm(st, side + ' takes ' + C[0] + (C[5] ? ' (capital)' : '') + '.', side === st.side ? 'good' : 'bad');
@@ -1499,7 +1547,7 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus };
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;
