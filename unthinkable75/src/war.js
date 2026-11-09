@@ -237,6 +237,8 @@ var OOB = {
       [11.0, 49.45, 'armor'], [12.1, 49.4, 'cav'], [11.9, 49.0, 'mech'], [9.2, 48.8, 'armor'], [10.0, 48.4, 'mech'], [11.6, 48.1, 'inf'], [10.5, 47.9, 'inf'],
       [7.75, 48.6, 'armor'], [6.2, 49.1, 'mech'], [4.8, 49.0, 'mech'], [10.99, 45.4, 'inf'], [13.2, 46.0, 'inf'], [24.4, 41.1, 'inf'], [26.5, 41.7, 'mech'],
       [9.9, 51.0, 'arty'], [8.9, 50.4, 'arty'], [8.4, 52.3, 'arty'], [11.3, 49.2, 'arty'], [9.0, 48.7, 'arty'],
+      [9.4, 51.0, 'arty'], [10.3, 50.3, 'arty'], [10.0, 49.6, 'arty'], [9.5, 52.0, 'arty'], [8.6, 50.7, 'arty'], [10.6, 51.6, 'arty'], [10.9, 49.9, 'arty'], [9.8, 52.6, 'arty'], [7.9, 50.5, 'arty'], [11.7, 48.9, 'arty'],
+      [9.6, 51.6, 'armor'], [10.4, 51.2, 'armor'], [9.9, 50.2, 'armor'], [10.3, 49.8, 'armor'], [9.0, 51.1, 'armor'], [10.6, 52.1, 'armor'], [9.7, 52.8, 'armor'], [10.6, 49.0, 'armor'], [9.4, 50.8, 'armor'], [8.6, 49.6, 'armor'], [10.1, 51.8, 'armor'], [11.0, 50.2, 'armor'],
       [8.9, 50.0, 'aa'], [8.0, 51.8, 'aa'], [10.2, 52.8, 'aa'], [7.3, 49.9, 'aa'], [11.5, 49.7, 'aa'],
       [9.7, 50.6, 'eng'], [8.7, 51.8, 'eng'], [8.8, 49.4, 'ah1'], [8.8, 51.7, 'ah1'], [10.8, 49.3, 'ah1'], [8.5, 50.0, 'ch47'],
       [7.6, 49.4, 'train'], [7.3, 51.0, 'train'], [8.6, 50.0, 'convoy'], [8.0, 51.4, 'convoy'], [11.0, 49.5, 'convoy']
@@ -251,6 +253,7 @@ var OOB = {
     ground: [
       [13.4, 52.5, 'gtank'], [12.6, 52.1, 'tank'], [11.6, 52.1, 'tank'], [11.9, 51.4, 'tank'], [11.0, 51.0, 'mot'], [10.9, 50.7, 'tank'], [12.9, 50.9, 'mot'], [13.7, 51.0, 'gtank'], [14.3, 51.8, 'mot'], [13.0, 53.5, 'mot'], [12.1, 54.1, 'mot'], [11.3, 53.6, 'mot'], [14.5, 53.4, 'mot'],
       [11.0, 52.9, 'tank'], [10.8, 51.6, 'mot'], [11.4, 50.4, 'mot'], [12.3, 50.6, 'tank'],
+      [12.0, 51.0, 'party'], [11.5, 52.0, 'party'], [13.0, 50.6, 'party'], [12.6, 52.5, 'party'], [14.0, 51.5, 'party'], [15.0, 50.2, 'party'], [12.2, 50.3, 'party'], [11.0, 52.6, 'party'], [16.0, 52.0, 'party'], [14.5, 53.0, 'party'],
       [14.5, 50.0, 'tank'], [13.6, 50.2, 'mot'], [12.4, 49.8, 'mot'], [14.5, 49.0, 'tank'], [16.6, 49.2, 'mot'], [17.2, 48.1, 'mot'], [17.1, 51.1, 'mot'], [18.5, 50.0, 'mot'],
       [16.9, 52.4, 'tank'], [15.5, 51.0, 'mot'], [14.5, 52.5, 'mot'], [15.7, 53.7, 'mot'], [18.0, 53.1, 'mot'], [19.0, 52.2, 'mot'], [21.0, 52.2, 'tank'], [17.0, 54.3, 'mot'],
       [19.1, 47.5, 'mot'], [20.0, 47.2, 'mot'], [22.0, 44.4, 'mot'], [26.1, 44.4, 'mot'], [23.6, 46.7, 'mot'], [23.3, 42.7, 'mot'], [26.0, 43.0, 'mot'],
@@ -331,7 +334,7 @@ function newGame(opts, mapObj) {
   });
   // second echelon and garrisons: reserves behind the front, around the big rear cities
   ['NATO', 'PACT'].forEach(function (side) {
-    var pool = side === 'NATO' ? ['inf', 'inf', 'mech', 'armor', 'inf', 'mortar'] : ['mot', 'mot', 'tank', 'mot', 'pmortar', 'vdv'], left = side === 'NATO' ? 22 : 30, foe = OTHER[side];
+    var pool = side === 'NATO' ? ['inf', 'inf', 'mech', 'armor', 'inf', 'mortar', 'arty', 'armor'] : ['mot', 'mot', 'tank', 'mot', 'pmortar', 'vdv', 'party'], left = side === 'NATO' ? 22 : 30, foe = OTHER[side];
     pool = pool.filter(function (k) { return U[k]; });
     var fronts = st.units.filter(function (u) { return u.side === foe && U[u.type].ground && !U[u.type].heli && !U[u.type].naval; });
     var cand = [];

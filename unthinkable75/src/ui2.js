@@ -161,7 +161,7 @@ var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '
 function draw() {
   var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#0a1a24'; ctx.fillRect(0, 0, cw, ch);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.fillStyle = '#0a1a24'; ctx.fillRect(0, 0, cw, ch);
   var s = z / bgView.z; ctx.drawImage(bg, cw / 2 - cw / 2 * s + (bgView.cx - v.cx) * z, ch / 2 - ch / 2 * s + (bgView.cy - v.cy) * z, cw * s, ch * s);
   var pad = 30, X0 = -pad, Y0 = -pad, X1 = cw + pad, Y1 = ch + pad;
   function on(p) { return p[0] > X0 && p[0] < X1 && p[1] > Y0 && p[1] < Y1; }
@@ -235,7 +235,7 @@ function draw() {
   // contacts (enemy as you know it)
   if (app.layers.cons) for (var id in con) {
     var c = con[id], pc = w2s(c.x, c.y); if (!on(pc)) continue; var fade = c.lv === 'old', foe = W.OTHER[side];
-    if (c.lv === 'unk') {
+    if (c.lv === 'unk' || !c.type) {
       ctx.beginPath(); ctx.arc(pc[0], pc[1], Math.max(10, c.err * z), 0, 7); ctx.strokeStyle = 'rgba(242,184,75,.8)'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.3; ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = 'rgba(40,32,10,.9)'; ctx.strokeStyle = '#f2b84b'; ctx.beginPath(); ctx.rect(pc[0] - 10, pc[1] - 7, 20, 14); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#f2b84b'; ctx.font = 'bold 11px ui-monospace,monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(c.size === 'large' ? '??' : '?', pc[0], pc[1] + 1);
     } else {
