@@ -281,7 +281,7 @@ var STEP = 15;
 function cityList() { return MAP.cities; }
 function airList() { return MAP.air; }
 function mkUnit(st, type, side, x, y) {
-  var d = U[type], u = { id: st.nid++, type: type, side: side, x: x, y: y, str: 100, sup: 100, mor: 80, orders: [], path: null, dig: 0, bt: 0, hold: 0, kills: 0 };
+  var d = U[type], u = { id: st.nid++, type: type, side: side, x: x, y: y, str: 100, sup: 100, mor: 80, orders: [], path: null, dig: 0, bt: 0, hold: 0, kills: 0, hist: [], trk: [], dist: 0 };
   if (d.air) { u.base = null; u.state = 'base'; u.rdy = 0; u.fuel = d.rad * 2; u.alt = 0; }
   if (d.heli) { u.state = 'land'; u.fuel = d.rad * 2; u.cargo = null; }
   if (d.naval) { u.state = 'sea'; u.cl = []; u.cvRdy = 0; }
@@ -311,7 +311,7 @@ function newGame(opts, mapObj) {
   var seed = opts.seed != null ? opts.seed : (Date.now() & 0x7fffffff);
   var st = { v: VERSION, side: opts.side || 'NATO', diff: opts.diff || 'normal', rs: seed | 0, t: START_MIN, spd: 0, nid: 1, units: [], cd: [], ad: [], con: { NATO: {}, PACT: {} },
     pts: { NATO: 14, PACT: 14 }, queue: [], esc: 0, retal: { NATO: 0, PACT: 0 }, nukeCool: { NATO: 0, PACT: 0 }, pol: { NATO: { pc: 4, coh: 75 }, PACT: { pc: 4, coh: 75 }, world: 45, med: 0 },
-    will: { NATO: 70, PACT: 80 }, fallout: [], cuts: [], log: [], events: [], ended: null, deploy: true, wins: { NATO: 0, PACT: 0 },
+    will: { NATO: 70, PACT: 80 }, fallout: [], fx: [], cuts: [], log: [], events: [], ended: null, deploy: true, wins: { NATO: 0, PACT: 0 },
     stats: { lost: { NATO: 0, PACT: 0 }, kills: { NATO: 0, PACT: 0 }, nukes: 0, maxEsc: 0, sorties: { NATO: 0, PACT: 0 } },
     set: { auto: true, pause: { contact: true, battle: false, nuke: true, lost: false, idle: false } }, aiT: 0, railT: 0, lastBat: {}, viol: {}, nearEnd: 0, vp0: null };
   for (var i = 0; i < MAP.cities.length; i++) { var c = MAP.cities[i]; st.cd.push({ o: OWN[c[6]] || 'NEUT', stk: 60, inf: 100, cp: 0, cs: null, conn: 1 }); }
@@ -410,6 +410,7 @@ function issue(st, ids, cmd, add) {
     if (d.naval && (cm.k === 'cas' || cm.k === 'strike')) cm.k = 'airstrike';
     if (!add) { u.orders = []; u.path = null; u.broken = false; if (isAir(u) && u.state === 'fly') u.route = null; }
     u.orders.push(cm); u.path = add ? u.path : null; ok++;
+    uhist(st, u, 'Ordered: ' + orderWord(cm) + (cm.x != null ? ' → ' + placeName(cm.x, cm.y) : '') + (add ? ' (added stop)' : '') + '.');
   });
   return { ok: ok, msg: ok ? '' : msg || 'Nothing could take that order.' };
 }
@@ -438,6 +439,7 @@ function checkCmd(st, u, d, cmd) {
     }
     return '';
   }
+  if (k === 'fire' && !d.air && !d.naval) { if (d.cls !== 'arty') return 'Only artillery can fire barrages.'; return ''; }
   if (d.air) {
     if (u.broken) return '';
     if (k === 'land' || k === 'rtb') return '';
@@ -526,6 +528,47 @@ function followPath(u, dkm) {
   }
   return !(u.path && u.path.length);
 }
+
+var ORBIT = { cap: 22, awacs: 30 };
+function placeName(x, y) {
+  var b = -1, bd = 1e9; for (var i = 0; i < MAP.cities.length; i++) { var dd = dist(x, y, MAP.cities[i][1], MAP.cities[i][2]); if (dd < bd) { bd = dd; b = i; } }
+  if (b < 0) return 'somewhere'; return bd < 6 ? MAP.cities[b][0] : 'near ' + MAP.cities[b][0] + ' (' + Math.round(bd) + ' km ' + dirWord(MAP.cities[b][1], MAP.cities[b][2], x, y) + ')';
+}
+function dirWord(x0, y0, x1, y1) { var a = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI; var n = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE']; return n[Math.round(((a + 360) % 360) / 45) % 8]; }
+function uhist(st, u, m) {
+  if (!u) return; u.hist = u.hist || []; var last = u.hist[u.hist.length - 1];
+  if (last && last.m.slice(0, 14) === m.slice(0, 14) && st.t - last.t < 40) { last.m = m; last.t = st.t; return; }
+  u.hist.push({ t: st.t, m: m }); if (u.hist.length > 50) u.hist.shift();
+}
+function orderWord(o) { return ({ move: 'Move', amove: 'Attack-move', hunt: 'Hunt', hold: 'Hold', dig: 'Dig in', haul: 'Haul supplies', cas: 'Ground attack', strike: 'Strike', recon: 'Recon', cap: 'Patrol', awacs: 'AWACS station', land: 'Land', lift: 'Lift troops', bombard: 'Bombard', airstrike: 'Carrier strike', fire: 'Artillery barrage', wait: 'Wait' })[o.k] || o.k; }
+function artyFire(st, u, o, dt) {
+  var d = U[u.type], R = d.rng * 0.9, dd = dist(u.x, u.y, o.x, o.y);
+  if (dd > R) {
+    if (!u.path) { var f = (dd - R * 0.8) / dd, sl = snapLand(u.x + (o.x - u.x) * f, u.y + (o.y - u.y) * f); u.path = findPath('g', u.x, u.y, sl.x, sl.y); if (!u.path) { u.orders.shift(); ev(st, 'idle', d.n + ': no route to a firing position.', u.x, u.y); return; } }
+    followPath(u, speedOn(u, d, st) * dt / 60); u.sup = Math.max(0, u.sup - 0.35 * dt / 60); return;
+  }
+  u.path = null;
+  if (u.sup < 10) { uhist(st, u, 'Out of ammunition, barrage stopped.'); u.orders.shift(); ev(st, 'idle', d.n + ' is out of shells.', u.x, u.y); return; }
+  o.left = (o.left == null ? (o.mins || 90) : o.left) - dt; o.acc = (o.acc || 0) + dt;
+  if (!o.began) { o.began = 1; uhist(st, u, 'Opened fire: ' + placeName(o.x, o.y) + '.'); }
+  while (o.acc >= 6) { o.acc -= 6; volley(st, u, o); }
+  if (o.left <= 0) { u.orders.shift(); uhist(st, u, 'Barrage finished (' + (o.vol || 0) + ' volleys).'); ev(st, 'idle', d.n + ' finished its barrage.', u.x, u.y); }
+}
+function volley(st, u, o) {
+  var d = U[u.type], n = d.rng > 20 ? 4 : 3; o.vol = (o.vol || 0) + 1; u.sup = Math.max(0, u.sup - 0.22); u.bt = 30;
+  var cx = o.x + rr(st, -1.5, 1.5), cy = o.y + rr(st, -1.5, 1.5);
+  for (var k = 0; k < n; k++) st.fx.push({ k: 'shell', x0: u.x, y0: u.y, x1: cx + rr(st, -2.4, 2.4), y1: cy + rr(st, -2.4, 2.4), t: st.t, s: u.side });
+  st.units.forEach(function (e) {
+    if (e.side === u.side || e.str <= 0 || e.cargoed || U[e.type].air || U[e.type].heli) return; var ed = U[e.type]; if (ed.naval && ed.sub) return;
+    if (dist(e.x, e.y, cx, cy) > 3.6) return;
+    var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'aa' || ed.cls === 'arty') ? 1.5 : 1;
+    var dm = d.a * (u.str / 100) * supF(u) * morF(u) * 1.6 * soft / (ed.d * (e.dig > 0 ? 1 + 0.45 * e.dig : 1) + 2) * rr(st, 0.7, 1.3);
+    e.str -= dm; e.mor -= dm * 0.8; e.bt = 60; e.dig = Math.max(0, e.dig - 0.03);
+    if (e.side === st.side) ev(st, 'battle', ed.n + ' is being shelled', e.x, e.y);
+    uhist(st, e, 'Under artillery fire (str ' + Math.round(Math.max(0, e.str)) + '%).');
+    if (e.str <= 6) { u.kills++; uhist(st, u, 'Destroyed ' + ed.n + ' with artillery.'); killUnit(st, e, u.side); }
+  });
+}
 function moveGround(st, u, dt) {
   var d = U[u.type];
   if (u.broken) { retreat(st, u, dt); return; }
@@ -536,6 +579,7 @@ function moveGround(st, u, dt) {
   if (o.k === 'hold') return;
   if (o.k === 'wait') { o.h -= dt / 60; if (o.h <= 0) u.orders.shift(); return; }
   if (u.heliWait) return;
+  if (o.k === 'fire') { artyFire(st, u, o, dt); return; }
   var tx, ty;
   if (o.k === 'hunt') {
     var c = st.con[u.side][o.cid], e = unitById(st, o.cid);
@@ -556,7 +600,7 @@ function moveGround(st, u, dt) {
   if (d.cls === 'train') sp = d.sp * mins / 60;
   var done = followPath(u, sp);
   u.sup = Math.max(0, u.sup - 0.35 * mins / 60 * (d.cls === 'train' ? 0 : 1));
-  if (done && o.k !== 'hunt') { u.orders.shift(); u.path = null; if (!u.orders.length) ev(st, 'idle', d.n + ' has arrived.', u.x, u.y); }
+  if (done && o.k !== 'hunt') { uhist(st, u, 'Arrived: ' + placeName(u.x, u.y) + '.'); u.orders.shift(); u.path = null; if (!u.orders.length) ev(st, 'idle', d.n + ' has arrived.', u.x, u.y); }
 }
 function cutAt(st, x, y) { for (var i = 0; i < st.cuts.length; i++) if (dist(x, y, st.cuts[i].x, st.cuts[i].y) < st.cuts[i].r) return true; return false; }
 function retreat(st, u, dt) {
@@ -755,14 +799,14 @@ function killUnit(st, u, by) {
 }
 function ownCityNear(st, side, x, y, r) { for (var i = 0; i < MAP.cities.length; i++) if (st.cd[i].o === side && dist(x, y, MAP.cities[i][1], MAP.cities[i][2]) < r) return true; return false; }
 function combat(st, dt) {
-  var size = 20, h = hashUnits(st, size), dmg = {}, hurt = {};
+  var size = 20, h = hashUnits(st, size), dmg = {}, hurt = {}, src = {};
   st.units.forEach(function (u) {
     if (u.str <= 0 || u.broken) return;
     var d = U[u.type]; if (!d.ground || d.heli) return;
     var isArty = d.cls === 'arty', R = isArty ? d.rng : 9;
     var canFire = d.a > 0 && (d.cls === 'gnd' || d.cls === 'recon' || isArty);
     if (!canFire) return;
-    var o = u.orders[0], moving = o && o.k === 'move';
+    var o = u.orders[0], moving = o && o.k === 'move'; if (o && o.k === 'fire') return;
     var best = null, bd = 1e9;
     nearbyH(h, size, u.x, u.y, R, function (e) {
       if (e.side === u.side || e.str <= 0) return; var dd = dist(u.x, u.y, e.x, e.y); if (dd <= R && dd < bd) { bd = dd; best = e; }
@@ -775,7 +819,8 @@ function combat(st, dt) {
     var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'ssm' || ed.cls === 'aa') ? 1.6 : ed.cls === 'arty' ? 1.3 : 1;
     var mult = 1; if (best.dig <= 0 && u.orders[0] && u.orders[0].k === 'amove') mult = 1.1;
     var dd2 = 3.2 * base * mult * soft / (defv + 2) * dt / 60;
-    dmg[best.id] = (dmg[best.id] || 0) + dd2; hurt[best.id] = best;
+    dmg[best.id] = (dmg[best.id] || 0) + dd2; hurt[best.id] = best; src[best.id] = u;
+    if (isArty && !(u.fxT > st.t)) { u.fxT = st.t + 9; for (var fk = 0; fk < 2; fk++) st.fx.push({ k: 'shell', x0: u.x, y0: u.y, x1: best.x + rr(st, -2, 2), y1: best.y + rr(st, -2, 2), t: st.t, s: u.side }); }
     u.bt = 60; if (!isArty) u.sup = Math.max(0, u.sup - 0.9 * dt / 60 * 2);
     best.bt = 60; u.last = best.id; best.lastBy = u.side;
     if (isArty) u.sup = Math.max(0, u.sup - 0.5 * dt / 60 * 2);
@@ -783,10 +828,11 @@ function combat(st, dt) {
   for (var id in dmg) {
     var e = hurt[id], a = dmg[id]; if (e.str <= 0) continue;
     e.str -= a; e.mor -= a * 0.55 + 0.1; e.dig = Math.max(0, e.dig - 0.02);
+    var sr = src[id]; if (sr) { uhist(st, e, 'Under attack by ' + U[sr.type].n + ' (str ' + Math.round(Math.max(0, e.str)) + '%).'); uhist(st, sr, 'Engaging ' + U[e.type].n + '.'); }
     st.stats.lost.dmg = (st.stats.lost.dmg || 0);
     if (e.side === st.side) ev(st, 'battle', U[e.type].n + ' under attack', e.x, e.y);
-    if (e.str <= 6) { killUnit(st, e, OTHER[e.side]); }
-    else if ((e.str < 32 || e.mor < 18) && !e.broken && U[e.type].cls === 'gnd') { e.broken = true; e.orders = []; e.path = null; ev(st, 'lost', U[e.type].n + ' is broken and falling back.', e.x, e.y); logm(st, U[e.type].n + ' broke and is falling back.', e.side === st.side ? 'bad' : 'good'); }
+    if (e.str <= 6) { if (sr) { sr.kills++; uhist(st, sr, 'Destroyed ' + U[e.type].n + '.'); } killUnit(st, e, OTHER[e.side]); }
+    else if ((e.str < 32 || e.mor < 18) && !e.broken && U[e.type].cls === 'gnd') { e.broken = true; uhist(st, e, 'Broke and is falling back.'); e.orders = []; e.path = null; ev(st, 'lost', U[e.type].n + ' is broken and falling back.', e.x, e.y); logm(st, U[e.type].n + ' broke and is falling back.', e.side === st.side ? 'bad' : 'good'); }
   }
   st.units = st.units.filter(function (u) { return !u.dead; });
   // rest and recover
@@ -838,6 +884,7 @@ function neutralViolation(st, side, name, x, y) {
   ev(st, 'pol', side + ' forces entered neutral ' + name + '. World opinion shifts.', x, y); logm(st, side + ' violated neutrality at ' + name + '.', side === st.side ? 'bad' : 'warn');
 }
 function flipCity(st, i, side) {
+  st.units.forEach(function (u) { if (u.side === side && u.str > 0 && dist(u.x, u.y, MAP.cities[i][1], MAP.cities[i][2]) < 9 && (U[u.type].ground)) uhist(st, u, 'Took ' + MAP.cities[i][0] + '.'); });
   var cd = st.cd[i], C = MAP.cities[i], was = cd.o; cd.o = side; cd.cp = 0; cd.stk = Math.floor(cd.stk * 0.4); cd.inf = Math.max(20, cd.inf - 25);
   var wv = 0.6 + C[3] / 500 + (C[5] ? 6 : 0);
   st.will[was] -= wv * 0.7; st.will[side] += wv * 0.3;
@@ -966,7 +1013,13 @@ function airStep(st, dt) {
       var cc = st.con[u.side][o.cid]; if (cc) { tx = cc.x; ty = cc.y; } else { tx = o.x; ty = o.y; }
     }
     if (o.k === 'cap' || o.k === 'awacs') {
-      if (dist(u.x, u.y, tx, ty) > spd) { var dd0 = dist(u.x, u.y, tx, ty); u.x += (tx - u.x) / dd0 * spd; u.y += (ty - u.y) / dd0 * spd; u.fuel -= spd; return; }
+      var OR = ORBIT[o.k];
+      if (!o.arr) {
+        var dd0 = dist(u.x, u.y, tx, ty);
+        if (dd0 > spd + OR) { u.x += (tx - u.x) / dd0 * spd; u.y += (ty - u.y) / dd0 * spd; u.fuel -= spd; return; }
+        o.arr = 1; o.ang = Math.atan2(u.y - ty, u.x - tx);
+      }
+      o.ang += spd * 0.7 / OR; u.x = tx + OR * Math.cos(o.ang); u.y = ty + OR * Math.sin(o.ang);
       o.left = (o.left == null ? o.h * 60 : o.left) - dt; u.fuel -= spd * 0.6; if (o.left <= 0) u.orders.shift(); return;
     }
     var dd = dist(u.x, u.y, tx, ty);
@@ -1377,10 +1430,13 @@ function step(st, dt) {
   dt = dt || STEP; st.t += dt;
   st.units.forEach(function (u) { var d = U[u.type]; if (!d.air && !d.heli && !d.naval && u.str > 0 && !u.cargoed) moveGround(st, u, dt); });
   navalStep(st, dt);
+  st.fx = st.fx || [];
   var sub = Math.max(1, Math.round(dt / 3)), sdt = dt / sub;
   for (var i = 0; i < sub; i++) { airStep(st, sdt); airDefence(st, sdt); airCombat(st, sdt); }
   combat(st, dt);
   st.units = st.units.filter(function (u) { return !u.dead; });
+  st.units.forEach(function (u) { if (u.str <= 0) return; var t = u.trk || (u.trk = []), l = t[t.length - 1]; if (!l) t.push([Math.round(u.x * 10) / 10, Math.round(u.y * 10) / 10]); else { var dd = dist(u.x, u.y, l[0], l[1]); if (dd >= 4) { t.push([Math.round(u.x * 10) / 10, Math.round(u.y * 10) / 10]); u.dist = (u.dist || 0) + dd; if (t.length > 80) t.shift(); } } });
+  if (st.fx.length) { st.fx = st.fx.filter(function (f) { return f.t > st.t - 45; }); if (st.fx.length > 240) st.fx.splice(0, st.fx.length - 240); }
   capture(st, dt); supplyStep(st, dt);
   st.cuts.forEach(function (c) { c.until -= dt; }); st.cuts = st.cuts.filter(function (c) { return c.until > 0; });
   productionStep(st, dt); politicsStep(st, dt);
@@ -1413,7 +1469,7 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, snapLand: snapLand, snapWater: snapWater, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus };
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;

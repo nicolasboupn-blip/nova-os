@@ -56,3 +56,14 @@ body.mini #app{display:none}#mini{display:none}body.mini #mini{display:flex}
 #mini{position:fixed;inset:0;align-items:center;justify-content:center;flex-direction:column;background:var(--panel);font-family:var(--mono);text-align:center;cursor:pointer}#mini b{font-size:18px;color:var(--amber)}#mini span{font-size:11px;color:var(--dim)}
 body.widget .closecard,body.widget [data-act=mini],body.full [data-act=mini],body.full .closecard{display:none}
 @media(min-width:780px){#app{flex-direction:column}.dock.h1{height:40vh}.dock.h2{height:60vh}}
+
+.chips button{padding:9px 11px;font-size:13px;line-height:1.1}
+.hint{font-size:12.5px;color:#c9d6cf;background:#101a16;border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin:4px 0 6px}
+.uhead{display:flex;gap:10px;align-items:center;padding:4px 0 6px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.uhead .ico{width:46px;height:26px;flex:none}.uhead .g{flex:1;min-width:0}.uhead .n{font-weight:700;font-size:13.5px}.uhead .s{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.uhead .bars{width:84px;flex:none;font-family:var(--mono);font-size:8.5px;color:var(--dim);letter-spacing:.06em}.uhead .bars .bar{margin:1px 0 3px}
+.rrow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}.rrow b{width:18px;height:18px;border-radius:9px;background:var(--panel2);display:grid;place-items:center;font-size:10px;flex:none}
+.rrow .g{flex:1;min-width:0}.rrow .n{font-weight:600;font-size:12.5px}.rrow .s{font-family:var(--mono);font-size:10px;color:var(--dim)}.rrow button{padding:6px 10px;font-size:12px}
+.hrow{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px}.hrow .mono{flex:none;width:84px;color:var(--dim);font-size:10px;padding-top:2px}
+.note.pickn{display:flex;gap:8px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2}.note.pickn button{padding:5px 9px;font-size:11px;flex:none}
+.tabs button.x{color:var(--bad);margin-left:auto;padding:8px 12px}.tabs button.x+.sz{margin-left:0}

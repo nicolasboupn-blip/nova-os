@@ -20,6 +20,7 @@ function saveSlot() { if (!app.st || !app.slot) return; try { Store.set(slotKey(
 /* ---------- app ---------- */
 var app = { screen: 'slots', slot: null, st: null, tab: 'units', sel: [], selNode: null, selCon: null, multi: false, addStop: false, pick: null, setup: { side: 'NATO', diff: 'normal' },
   dock: 1, modal: null, toast: '', toastT: 0, layers: { roads: true, rails: true, air: true, cities: true, cons: true }, view: { cx: 0, cy: 0, z: 0.6 }, capH: 3, mini: false, speed: 0 };
+var UTABS = [['move', 'Movement'], ['atk', 'Attacks'], ['trk', 'Tracks'], ['task', 'Tasks'], ['hist', 'History']];
 var SPEEDS = [0, 1 / 60, 0.25, 1, 5, 15, 60, 240, 720];   // game minutes per real second
 var SPEEDN = ['pause', 'x1 real time', 'x15', 'x60 (1 min/s)', 'x300', 'x900', 'x3600 (1 h/s)', '4 h/s', '12 h/s'];
 var TOPSPD = [[0, '⏸'], [1, '1×'], [3, '60×'], [5, '900×'], [7, '⏩']];
@@ -69,10 +70,17 @@ function renderBG() {
   bgx.imageSmoothingEnabled = true; bgx.drawImage(geo.bloc, (0 - v.cx) * z + cw / 2, (0 - v.cy) * z + ch / 2, G.w * G.cell * z, G.h * G.cell * z);
   bgx.restore();
   bgx.beginPath(); trace(geo.land, true); bgx.strokeStyle = '#6f8c86'; bgx.lineWidth = 1; bgx.stroke();
-  if (app.layers.rails) { bgx.beginPath(); trace(geo.rails); bgx.strokeStyle = z > 0.5 ? 'rgba(190,150,60,.55)' : 'rgba(190,150,60,.3)'; bgx.lineWidth = z > 1.5 ? 1.4 : 0.8; bgx.setLineDash(z > 1.2 ? [5, 3] : []); bgx.stroke(); bgx.setLineDash([]); }
   if (app.layers.roads) {
-    bgx.beginPath(); trace(geo.roads.filter(function (r) { return r.t === 1; })); bgx.strokeStyle = 'rgba(210,210,200,.5)'; bgx.lineWidth = z > 1.5 ? 1.6 : 1; bgx.stroke();
-    if (z > 0.4) { bgx.beginPath(); trace(geo.roads.filter(function (r) { return r.t === 2; })); bgx.strokeStyle = 'rgba(180,180,170,.28)'; bgx.lineWidth = 0.8; bgx.stroke(); }
+    var maj = geo.roads.filter(function (r) { return r.t === 1; }), mnr = geo.roads.filter(function (r) { return r.t === 2; });
+    bgx.lineJoin = 'round'; bgx.lineCap = 'round';
+    if (z > 0.4) { bgx.beginPath(); trace(mnr); bgx.strokeStyle = 'rgba(0,0,0,.55)'; bgx.lineWidth = z > 1.5 ? 3 : 2.2; bgx.stroke(); bgx.beginPath(); trace(mnr); bgx.strokeStyle = 'rgba(205,200,175,.62)'; bgx.lineWidth = z > 1.5 ? 1.5 : 1; bgx.stroke(); }
+    bgx.beginPath(); trace(maj); bgx.strokeStyle = 'rgba(0,0,0,.7)'; bgx.lineWidth = z > 1.5 ? 4.6 : z > 0.6 ? 3.6 : 2.8; bgx.stroke();
+    bgx.beginPath(); trace(maj); bgx.strokeStyle = '#f4d77a'; bgx.lineWidth = z > 1.5 ? 2.6 : z > 0.6 ? 1.9 : 1.4; bgx.stroke();
+  }
+  if (app.layers.rails) {
+    bgx.lineJoin = 'round'; bgx.beginPath(); trace(geo.rails); bgx.strokeStyle = 'rgba(0,0,0,.6)'; bgx.lineWidth = z > 1.5 ? 3.2 : z > 0.6 ? 2.4 : 1.8; bgx.stroke();
+    bgx.beginPath(); trace(geo.rails); bgx.strokeStyle = '#c9d6dc'; bgx.lineWidth = z > 1.5 ? 1.8 : z > 0.6 ? 1.3 : 1; bgx.stroke();
+    bgx.beginPath(); trace(geo.rails); bgx.strokeStyle = '#25323a'; bgx.lineWidth = z > 1.5 ? 1.8 : z > 0.6 ? 1.3 : 1; bgx.setLineDash(z > 1.2 ? [6, 6] : [4, 5]); bgx.stroke(); bgx.setLineDash([]);
   }
   bgx.beginPath(); trace(geo.borders); bgx.strokeStyle = 'rgba(235,235,225,.55)'; bgx.lineWidth = 0.9; bgx.setLineDash([4, 3]); bgx.stroke(); bgx.setLineDash([]);
   bgx.beginPath(); trace(geo.iron); bgx.strokeStyle = '#f2b84b'; bgx.lineWidth = 2; bgx.stroke();
@@ -121,7 +129,17 @@ function drawUnitIcon(c, x, y, u, col, o) {
 
 /* ---------- drawing the live layer ---------- */
 function ownUnits() { return app.st.units.filter(function (u) { return u.side === app.st.side && u.str > 0 && !u.cargoed; }); }
-function drawn(u) { var d = U[u.type]; return !(d.air && u.state === 'base'); }
+function drawn(u) { var d = U[u.type]; return !(d.air && u.state === 'base') || app.view.z >= 0.8; }
+var PARK = {};
+function parkMap(st) {
+  PARK = {}; var by = {};
+  st.units.forEach(function (u) { if (u.side === st.side && U[u.type].air && u.state === 'base' && u.base != null && u.str > 0 && !u.cargoed) (by[u.base] = by[u.base] || []).push(u); });
+  for (var b in by) by[b].sort(function (a, c) { return a.id - c.id; }).forEach(function (u, i) { PARK[u.id] = i; });
+}
+function upos(u) {
+  var d = U[u.type]; if (d.air && u.state === 'base' && PARK[u.id] != null && app.view.z >= 0.8) { var p = w2s(u.x, u.y), i = PARK[u.id]; return [p[0] + ((i % 4) - 1.5) * 31, p[1] + 20 + Math.floor(i / 4) * 25]; }
+  return w2s(u.x, u.y);
+}
 function airStacks(st) {
   var by = {}; st.units.forEach(function (u) { if (u.side === st.side && U[u.type].air && u.state === 'base' && u.base != null && u.str > 0) (by[u.base] = by[u.base] || []).push(u); });
   return by;
@@ -136,6 +154,9 @@ function orderPts(u) {
   });
   return pts;
 }
+var OMETA = { move: { c: '#7fd0ff', l: 'MOVE HERE', s: 'flag', dash: [1, 0] }, amove: { c: '#ff9f5b', l: 'ATTACK-MOVE', s: 'chev' }, hunt: { c: '#ff5b4a', l: 'HUNT', s: 'cross' }, cas: { c: '#ff5b4a', l: 'GROUND ATTACK', s: 'cross' }, strike: { c: '#ffd24a', l: 'AIR STRIKE', s: 'cross' }, airstrike: { c: '#ffd24a', l: 'CARRIER STRIKE', s: 'cross' },
+  fire: { c: '#ff4a3a', l: 'ARTILLERY BARRAGE', s: 'cross' }, bombard: { c: '#ff9f5b', l: 'SHIP BOMBARDMENT', s: 'cross' }, cap: { c: '#6fd08c', l: 'PATROL (CIRCLES HERE)', s: 'orbit' }, awacs: { c: '#6fd08c', l: 'AWACS ORBIT', s: 'orbit' }, recon: { c: '#b7b7ff', l: 'RECON', s: 'dot' },
+  haul: { c: '#f2b84b', l: 'SUPPLY RUN', s: 'dot' }, lift: { c: '#7fd0ff', l: 'LIFT / DROP', s: 'dot' }, land: { c: '#aaaaaa', l: 'LAND HERE', s: 'flag' }, rtb: { c: '#aaaaaa', l: 'RETURN', s: 'flag' } };
 var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
 function draw() {
   var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
@@ -159,7 +180,7 @@ function draw() {
     if (lab) { ctx.font = (C[5] ? 'bold ' : '') + '10px system-ui'; ctx.fillStyle = 'rgba(232,240,235,.92)'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,14,12,.8)'; ctx.strokeText(C[0], p[0] + r + 4, p[1]); ctx.fillText(C[0], p[0] + r + 4, p[1]); }
   }
   // airfields
-  var stacks = airStacks(st);
+  var stacks = airStacks(st); parkMap(st);
   if (app.layers.air) for (i = 0; i < M.air.length; i++) {
     var A = M.air[i], pa = w2s(A[2], A[3]); if (!on(pa)) continue; var ad = st.ad[i], size = A[5], mine = ad.o === side, stack = stacks[i];
     if (!stack && !(app.selNode && app.selNode.t === 'a' && app.selNode.i === i) && ((size === 1 && z < 1.5) || (size === 2 && z < 0.7) || (size === 3 && z < 0.3))) continue;
@@ -167,21 +188,49 @@ function draw() {
     ctx.save(); ctx.translate(pa[0], pa[1]); ctx.rotate(0.6); ctx.globalAlpha = ad.dmg > 0.6 ? 0.45 : 1; ctx.strokeStyle = col2; ctx.lineWidth = 1.6; ctx.fillStyle = 'rgba(8,14,12,.8)';
     ctx.beginPath(); ctx.rect(-sz, -1.6, sz * 2, 3.2); ctx.fill(); ctx.stroke(); ctx.restore();
     if (ad.cp > 0.02) { ctx.beginPath(); ctx.arc(pa[0], pa[1], sz + 3, -1.57, -1.57 + 6.28 * ad.cp); ctx.strokeStyle = SIDE_COL[ad.cs] || '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
-    if (stack) {
+    if (stack && z < 0.8) {
       var pn2 = Math.min(stack.length, 6), pz = Math.max(0.8, Math.min(1.6, 0.7 + z * 0.5));
       for (var pk = 0; pk < pn2; pk++) { var off = (pk - (pn2 - 1) / 2) * 8 * pz; ctx.save(); ctx.translate(pa[0] + Math.cos(0.6) * off + 5, pa[1] + Math.sin(0.6) * off - 9 * pz); ctx.scale(pz, pz); drawSym(ctx, 'A', 0, 0, col2); ctx.restore(); }
     }
-    if (stack) { ctx.font = 'bold 9px ui-monospace,monospace'; ctx.fillStyle = col2; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,14,12,.85)'; ctx.strokeText('✈' + stack.length, pa[0], pa[1] - sz - 11); ctx.fillText('✈' + stack.length, pa[0], pa[1] - sz - 11); }
+    if (stack && z < 0.8) { ctx.font = 'bold 9px ui-monospace,monospace'; ctx.fillStyle = col2; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,14,12,.85)'; ctx.strokeText('✈' + stack.length, pa[0], pa[1] - sz - 11); ctx.fillText('✈' + stack.length, pa[0], pa[1] - sz - 11); }
     if (z >= 2.6 || (app.selNode && app.selNode.t === 'a' && app.selNode.i === i)) { ctx.font = '9px system-ui'; ctx.fillStyle = 'rgba(190,230,200,.85)'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(A[0], pa[0] + sz + 3, pa[1] + 5); }
   }
   // selected node ring
   if (app.selNode) { var nd = app.selNode, np = nd.t === 'c' ? [M.cities[nd.i][1], M.cities[nd.i][2]] : [M.air[nd.i][2], M.air[nd.i][3]], sp = w2s(np[0], np[1]); ctx.beginPath(); ctx.arc(sp[0], sp[1], 14, 0, 7); ctx.strokeStyle = '#f2b84b'; ctx.lineWidth = 2; ctx.stroke(); }
-  // orders of selected units
+  // trails of selected units
+  if (app.showTrail !== false) app.sel.forEach(function (id) {
+    var u = W.unitById(st, id); if (!u || !u.trk || u.trk.length < 2) return; var n = u.trk.length;
+    for (var q = 1; q < n; q++) { var p0 = w2s(u.trk[q - 1][0], u.trk[q - 1][1]), p1 = w2s(u.trk[q][0], u.trk[q][1]); ctx.strokeStyle = 'rgba(160,210,255,' + (0.18 + 0.6 * q / n) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke(); }
+    var pl = w2s(u.trk[n - 1][0], u.trk[n - 1][1]), pu = upos(u); ctx.strokeStyle = 'rgba(160,210,255,.8)'; ctx.beginPath(); ctx.moveTo(pl[0], pl[1]); ctx.lineTo(pu[0], pu[1]); ctx.stroke();
+    var p00 = w2s(u.trk[0][0], u.trk[0][1]); ctx.fillStyle = 'rgba(160,210,255,.7)'; ctx.beginPath(); ctx.arc(p00[0], p00[1], 3, 0, 7); ctx.fill();
+  });
+  // orders of selected units: clear, labelled markers
   app.sel.forEach(function (id) {
-    var u = W.unitById(st, id); if (!u) return; var pts = orderPts(u); if (!pts.length) return;
-    var a = w2s(u.x, u.y); ctx.lineWidth = 1.6; ctx.setLineDash([6, 4]);
-    pts.forEach(function (q) { var b = w2s(q.x, q.y); ctx.strokeStyle = KCOL[q.k] || '#fff'; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(b[0], b[1], 4, 0, 7); ctx.fillStyle = KCOL[q.k] || '#fff'; ctx.fill(); ctx.setLineDash([6, 4]); a = b; });
-    ctx.setLineDash([]);
+    var u = W.unitById(st, id); if (!u) return; var pts = orderPts(u); if (!pts.length) return; var d = U[u.type];
+    var a = upos(u), multi = pts.length > 1;
+    pts.forEach(function (q, qi) {
+      var b = w2s(q.x, q.y), m = OMETA[q.k] || { c: '#fff', l: q.k }, col = m.c;
+      ctx.lineWidth = 2.2; ctx.setLineDash(m.dash || [8, 5]); ctx.strokeStyle = col; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      // arrow head
+      var ang = Math.atan2(b[1] - a[1], b[0] - a[0]), L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (L > 26) { var mx = a[0] + (b[0] - a[0]) * 0.55, my = a[1] + (b[1] - a[1]) * 0.55; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(mx + Math.cos(ang) * 6, my + Math.sin(ang) * 6); ctx.lineTo(mx + Math.cos(ang + 2.5) * 6, my + Math.sin(ang + 2.5) * 6); ctx.lineTo(mx + Math.cos(ang - 2.5) * 6, my + Math.sin(ang - 2.5) * 6); ctx.closePath(); ctx.fill(); }
+      // area markers: patrol circle, barrage zone
+      if (q.k === 'cap' || q.k === 'awacs') { var R = W.ORBIT[q.k] * z; ctx.beginPath(); ctx.arc(b[0], b[1], R, 0, 7); ctx.fillStyle = 'rgba(111,208,140,.10)'; ctx.fill(); ctx.setLineDash([2, 5]); ctx.lineWidth = 2.4; ctx.strokeStyle = col; ctx.stroke(); ctx.setLineDash([]); for (var k2 = 0; k2 < 3; k2++) { var aa = (Date.now() / 1400 + k2 * 2.09) % 6.283; ctx.beginPath(); ctx.arc(b[0] + Math.cos(aa) * R, b[1] + Math.sin(aa) * R, 3.2, 0, 7); ctx.fillStyle = col; ctx.fill(); } }
+      if (q.k === 'fire') { var Rz = Math.max(7, 3.6 * z); ctx.beginPath(); ctx.arc(b[0], b[1], Rz, 0, 7); ctx.fillStyle = 'rgba(255,60,50,.18)'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke(); }
+      if (q.k === 'fire' && qi === 0) { ctx.beginPath(); ctx.arc(a[0], a[1], d.rng * z, 0, 7); ctx.strokeStyle = 'rgba(255,90,70,.55)'; ctx.setLineDash([3, 6]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
+      // marker shape
+      ctx.save(); ctx.translate(b[0], b[1]); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2.4;
+      if (m.s === 'cross') { ctx.beginPath(); ctx.arc(0, 0, 7, 0, 7); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.moveTo(0, -11); ctx.lineTo(0, 11); ctx.stroke(); }
+      else if (m.s === 'chev') { ctx.beginPath(); ctx.moveTo(-7, -7); ctx.lineTo(0, 0); ctx.lineTo(-7, 7); ctx.moveTo(1, -7); ctx.lineTo(8, 0); ctx.lineTo(1, 7); ctx.stroke(); }
+      else if (m.s === 'flag') { ctx.beginPath(); ctx.moveTo(-3, 8); ctx.lineTo(-3, -9); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-3, -9); ctx.lineTo(8, -5); ctx.lineTo(-3, -1); ctx.closePath(); ctx.fill(); }
+      else if (m.s === 'orbit') { ctx.beginPath(); ctx.arc(0, 0, 4, 0, 7); ctx.fill(); }
+      else { ctx.beginPath(); ctx.arc(0, 0, 5, 0, 7); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke(); }
+      ctx.restore();
+      // label pill
+      var lab = (multi ? (qi + 1) + '. ' : '') + m.l + (q.k === 'cap' || q.k === 'awacs' || q.k === 'recon' ? '' : ''); ctx.font = 'bold 10px system-ui'; var tw = ctx.measureText(lab).width + 10;
+      ctx.fillStyle = 'rgba(8,14,12,.88)'; ctx.fillRect(b[0] + 10, b[1] - 20, tw, 15); ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(b[0] + 10, b[1] - 20, tw, 15); ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(lab, b[0] + 15, b[1] - 12);
+      a = b;
+    });
   });
   // contacts (enemy as you know it)
   if (app.layers.cons) for (var id in con) {
@@ -197,7 +246,7 @@ function draw() {
   // own units
   var small = z < 0.32;
   ownUnits().forEach(function (u) {
-    if (!drawn(u)) return; var d = U[u.type], p = w2s(u.x, u.y); if (!on(p)) return; var sel = app.sel.indexOf(u.id) >= 0;
+    if (!drawn(u)) return; var d = U[u.type], p = upos(u); if (!on(p)) return; var sel = app.sel.indexOf(u.id) >= 0;
     if (small && !sel && (d.cls === 'arty' || d.cls === 'aa' || d.cls === 'eng' || d.cls === 'convoy' || d.cls === 'train' || d.heli)) return;
     var sc = small ? 0.7 : 1; ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(sc, sc);
     drawUnitIcon(ctx, 0, 0, u, SIDE_COL[side], { bar: u.str, sel: sel, fly: airborne(u), fade: u.broken });
@@ -213,7 +262,23 @@ function draw() {
       ctx.beginPath(); ctx.arc(pp[0], pp[1], d0.rad * W.rangeBonus(st, u0) * z, 0, 7); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([2, 6]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
     }
   }
+  if (app.pick && app.pick.kind === 'fire') app.sel.forEach(function (id) { var ua = W.unitById(st, id); if (!ua || U[ua.type].cls !== 'arty') return; var pa2 = upos(ua); ctx.beginPath(); ctx.arc(pa2[0], pa2[1], U[ua.type].rng * z, 0, 7); ctx.fillStyle = 'rgba(255,70,50,.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,90,70,.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.6; ctx.stroke(); ctx.setLineDash([]); });
   if (app.pick && app.pick.kind === 'nuke' && app.pick.at) { var pn = w2s(app.pick.at.x, app.pick.at.y); ctx.beginPath(); ctx.arc(pn[0], pn[1], app.pick.R * z, 0, 7); ctx.fillStyle = 'rgba(232,255,90,.18)'; ctx.fill(); ctx.strokeStyle = '#e8ff5a'; ctx.lineWidth = 2; ctx.stroke(); }
+  // artillery shells (red dots) and craters
+  var now = performance.now(), fxs = st.fx || [], ownU = ownUnits();
+  fxs.forEach(function (f, fi) {
+    if (f.r == null) f.r = now + (fi % 4) * 140;
+    var vis = f.s === side; if (!vis) { for (var ou = 0; ou < ownU.length; ou++) if (Math.abs(ownU[ou].x - f.x1) < 35 && Math.abs(ownU[ou].y - f.y1) < 35) { vis = true; break; } } if (!vis) return;
+    var age = now - f.r; if (age < 0) return; var p1 = w2s(f.x1, f.y1), p0 = w2s(f.x0, f.y0);
+    if (age < 950) {
+      var pr = age / 950, x = p0[0] + (p1[0] - p0[0]) * pr, y = p0[1] + (p1[1] - p0[1]) * pr - Math.sin(pr * 3.14) * 16;
+      for (var tr = 3; tr >= 1; tr--) { var pt = Math.max(0, pr - tr * 0.05); ctx.fillStyle = 'rgba(255,70,50,' + (0.5 - tr * 0.12) + ')'; ctx.beginPath(); ctx.arc(p0[0] + (p1[0] - p0[0]) * pt, p0[1] + (p1[1] - p0[1]) * pt - Math.sin(pt * 3.14) * 16, 2.4, 0, 7); ctx.fill(); }
+      ctx.fillStyle = '#ff3b2e'; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, 7); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.8; ctx.stroke();
+    } else {
+      var ia = age - 950; if (ia < 900) { var rr2 = 4 + ia / 900 * 10; ctx.beginPath(); ctx.arc(p1[0], p1[1], rr2, 0, 7); ctx.strokeStyle = 'rgba(255,120,60,' + (1 - ia / 900) + ')'; ctx.lineWidth = 2.2; ctx.stroke(); ctx.fillStyle = 'rgba(255,200,90,' + (0.9 - ia / 1000) + ')'; ctx.beginPath(); ctx.arc(p1[0], p1[1], 3.5, 0, 7); ctx.fill(); }
+      var ga = clamp(1 - (st.t - f.t) / 45, 0, 1); ctx.fillStyle = 'rgba(255,48,36,' + (0.25 + 0.65 * ga) + ')'; ctx.beginPath(); ctx.arc(p1[0], p1[1], 2.6, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(40,0,0,.8)'; ctx.lineWidth = 0.8; ctx.stroke();
+    }
+  });
   // scale bar
   var km = z > 3 ? 20 : z > 1.2 ? 50 : z > 0.5 ? 100 : 300; ctx.strokeStyle = '#d9e2dc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(10, ch - 14); ctx.lineTo(10 + km * z, ch - 14); ctx.stroke(); ctx.fillStyle = '#d9e2dc'; ctx.font = '10px ui-monospace,monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(km + ' km', 10, ch - 17);
 }
@@ -222,7 +287,8 @@ function airborne(u) { return W.airborne(u); }
 /* ---------- picking things on the map ---------- */
 function pickAt(sx, sy) {
   var st = app.st, side = st.side, out = [];
-  ownUnits().forEach(function (u) { if (!drawn(u)) return; var p = w2s(u.x, u.y), d = Math.hypot(p[0] - sx, p[1] - sy); if (d < 20) out.push({ t: 'u', id: u.id, d: d }); });
+  parkMap(st);
+  ownUnits().forEach(function (u) { if (!drawn(u)) return; var p = upos(u), d = Math.hypot(p[0] - sx, p[1] - sy); if (d < 20) out.push({ t: 'u', id: u.id, d: d }); });
   var con = st.con[side]; for (var id in con) { var c = con[id], p2 = w2s(c.x, c.y), d2 = Math.hypot(p2[0] - sx, p2[1] - sy); if (d2 < 20) out.push({ t: 'k', id: +id, d: d2 + 1 }); }
   if (app.layers.air) for (var i = 0; i < M.air.length; i++) { var A = M.air[i], p3 = w2s(A[2], A[3]), d3 = Math.hypot(p3[0] - sx, p3[1] - sy); if (d3 < 15) { var vis = airStacks(st)[i] || A[5] === 3 && app.view.z > 0.3 || A[5] === 2 && app.view.z > 0.7 || A[5] === 1 && app.view.z > 1.5; if (vis) out.push({ t: 'a', i: i, d: d3 + 2 }); } }
   for (i = 0; i < M.cities.length; i++) { var C = M.cities[i], p4 = w2s(C[1], C[2]), d4 = Math.hypot(p4[0] - sx, p4[1] - sy); if (d4 < 17) out.push({ t: 'c', i: i, d: d4 + 3 }); }
@@ -232,7 +298,7 @@ function pickAt(sx, sy) {
 /* ---------- order picking ---------- */
 var PICKTXT = { move: 'Tap the map: where should it go?', amove: 'Tap the map: attack-move there (fights anything on the way).', hunt: 'Tap an enemy contact (identified or ?) to hunt it down.', cas: 'Tap an enemy contact or a spot for the ground attack.',
   strike: 'Tap an enemy city or airfield to bomb, or any spot.', cut: 'Tap a railway line to cut it with a strike.', recon: 'Tap the map: recon flight to there.', cap: 'Tap the map: combat air patrol over there.', awacs: 'Tap the map: AWACS station.',
-  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', bombard: 'Tap the enemy position to shell (the ship sails to within gun range).', sealift1: 'Tap the ground unit to load (near the coast).', sealift2: 'Tap the landing spot on the coast.', nuke: 'Tap the target for the strike.' };
+  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', bombard: 'Tap the enemy position to shell (the ship sails to within gun range).', sealift1: 'Tap the ground unit to load (near the coast).', sealift2: 'Tap the landing spot on the coast.', nuke: 'Tap the target for the strike.', fire: 'Tap the spot to shell. Red ring = gun range; the battery moves into range first.' };
 function startPick(kind, extra) { app.pick = { kind: kind }; if (extra) for (var k in extra) app.pick[k] = extra[k]; paintBanner(); }
 function endPick() { app.pick = null; app.addStop = false; paintBanner(); renderDock(true); }
 function issue(cmd) {
@@ -248,6 +314,7 @@ function handlePick(sx, sy) {
     else { if (!W.isLand(w.x, w.y) && !app.sel.some(function (id) { var u = W.unitById(st, id); return u && (W.isHeli(u) || U[u.type].naval); })) { toast('That is water.'); return; } ok = issue({ k: k, x: w.x, y: w.y }); }
   } else if (k === 'hunt') { var c = first('k'); if (!c) { toast('No contact there.'); return; } ok = issue({ k: 'hunt', cid: c.id }); }
   else if (k === 'bombard') ok = issue({ k: 'bombard', x: w.x, y: w.y });
+  else if (k === 'fire') { var cf = first('k'); ok = issue({ k: 'fire', x: cf ? st.con[st.side][cf.id].x : w.x, y: cf ? st.con[st.side][cf.id].y : w.y, mins: app.fireM || 60 }); }
   else if (k === 'sealift1') { var u2 = first('u'); var su2 = u2 && W.unitById(st, u2.id); if (!su2 || !U[su2.type].ground || U[su2.type].heli || U[su2.type].naval || U[su2.type].cls === 'train') { toast('Tap one of your ground units near the coast.'); return; } p.uid = su2.id; p.kind = 'sealift2'; paintBanner(); return; }
   else if (k === 'sealift2') ok = issue({ k: 'lift', uid: p.uid, x: w.x, y: w.y });
   else if (k === 'cas') { var c2 = first('k'); ok = issue(c2 ? { k: 'cas', cid: c2.id, x: st.con[st.side][c2.id].x, y: st.con[st.side][c2.id].y } : { k: 'cas', x: w.x, y: w.y }); }
@@ -286,7 +353,7 @@ function onTap(sx, sy) {
   var h = hits[0];
   if (unitsHit.length > 1 && h.t === 'u') { var idx = unitsHit.findIndex(function (x) { return app.sel.length === 1 && app.sel[0] === x.id; }); h = unitsHit[(idx + 1) % unitsHit.length]; }
   if (h.t === 'u') { selectUnit(h.id); return; }
-  if (h.t === 'k') { app.selCon = h.id; app.selNode = null; if (!app.multi) app.sel = app.sel; app.tab = 'units'; if (!app.dock) app.dock = 1; renderDock(true); return; }
+  if (h.t === 'k') { app.selCon = h.id; app.selNode = null; if (app.sel.length) app.utab = 'atk'; app.tab = 'units'; if (!app.dock) app.dock = 1; renderDock(true); return; }
   app.selNode = { t: h.t, i: h.i }; app.selCon = null; if (!app.multi) app.sel = []; app.tab = 'units'; if (!app.dock) app.dock = 1; renderDock(true);
 }
 
@@ -399,6 +466,130 @@ function panelMove() {
   if (!moving.length) h += '<div class="dim">Nothing is on the move. Select a unit and give it orders.</div>';
   return h;
 }
+
+/* ---------- the unit panel: replaces the tabs while units are selected ---------- */
+function unitMode() { var st = app.st; if (!st || !app.sel.length) return false; return app.sel.some(function (id) { return W.unitById(st, id); }); }
+function hmT(t) { return W.dateStr(t); }
+function selUnits() { var st = app.st; return app.sel.map(function (id) { return W.unitById(st, id); }).filter(Boolean); }
+function hint(t) { return '<div class="hint">' + t + '</div>'; }
+function unitHead(su) {
+  var h = '';
+  if (su.length === 1) {
+    var u = su[0], d = U[u.type];
+    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div></div><div class="bars">' +
+      '<span>STR</span>' + bar(u.str, u.str > 60 ? '' : u.str > 30 ? 'w' : 'r') + '<span>SUPPLY</span>' + bar(u.sup, u.sup > 40 ? '' : u.sup > 15 ? 'w' : 'r') + '<span>MORALE</span>' + bar(u.mor, u.mor > 50 ? '' : u.mor > 25 ? 'w' : 'r') + (d.air ? '<span>FUEL</span>' + bar(u.fuel / (d.rad * 2) * 100, 'c') : '') + '</div></div>';
+  } else {
+    var types = {}; su.forEach(function (u) { types[U[u.type].n] = (types[U[u.type].n] || 0) + 1; });
+    var avg = su.reduce(function (a, u) { return a + u.str; }, 0) / su.length;
+    h += '<div class="uhead"><div class="g"><div class="n">' + su.length + ' units selected</div><div class="s">' + Object.keys(types).slice(0, 3).map(function (k) { return types[k] + '× ' + k.split(' (')[0]; }).join(' · ') + (Object.keys(types).length > 3 ? ' …' : '') + '</div></div><div class="bars"><span>AVG STR</span>' + bar(avg, avg > 60 ? '' : avg > 30 ? 'w' : 'r') + '</div></div>';
+  }
+  return h;
+}
+function groupKinds(su) {
+  var g = { gnd: 0, nav: 0, air: 0, heli: 0, log: 0, arty: 0, atk: 0 }, roles = {}, nv = [];
+  su.forEach(function (u) { var d = U[u.type];
+    if (d.naval) { g.nav++; nv.push(d); } else if (d.air) g.air++; else if (d.heli) g.heli++; else if (d.cls === 'train' || d.cls === 'convoy') g.log++; else if (d.ground) { g.gnd++; if (d.cls === 'arty') g.arty++; if (d.a > 0) g.atk++; }
+    (d.roles || []).forEach(function (r) { roles[r] = 1; }); if (d.heli && d.a2g) roles.cas = 1; });
+  g.roles = roles; g.nv = nv; return g;
+}
+function pickBanner() { return app.pick ? '<div class="note pickn"><b>' + esc(PICKTXT[app.pick.kind] || 'Tap the map.') + '</b> <button data-a="cancel">CANCEL</button></div>' : ''; }
+function uMove(su, g) {
+  var st = app.st, h = '';
+  if (st.deploy) {
+    return hint('Deployment: tap PLACE, then tap a spot in your own territory.' + (g.air ? ' Aircraft use BASE AT, then tap an airfield.' : '')) + '<div class="chips">' + (g.gnd + g.log + g.heli + g.nav ? chip('pick:move', '📍 PLACE') : '') + (g.air ? chip('pick:land', '🛬 BASE AT') : '') + '</div>';
+  }
+  h += hint('Tap a command, then tap the map. <b>Tip:</b> long-press the map to send the selected units there.');
+  h += '<div class="chips">';
+  if (g.gnd || g.log) h += chip('pick:move', '➡ MOVE');
+  if (g.nav) h += chip('pick:move', '⚓ SAIL TO');
+  if (g.heli) h += chip('pick:move', '🚁 FLY TO');
+  if (g.air) h += chip('pick:land', '🛬 LAND AT');
+  if (g.log) h += chip('pick:haul1', '🚚 HAUL SUPPLIES');
+  h += '</div><div class="chips">' + (g.gnd + g.nav ? chip('do:hold', '✋ HOLD') : '') + (g.gnd ? chip('do:dig', '⛏ DIG IN') : '') + chip('stop', '➕ ADD STOP', '', app.addStop) + chip('clear', '✖ CLEAR ORDERS') + '</div>';
+  if (app.addStop) h += '<div class="note good">ADD STOP is on: every target you pick is added to the route instead of replacing it.</div>';
+  var u = su[0]; if (u && u.orders.length) { h += '<div class="lbl">Route</div>'; h += routeList(u); }
+  return h;
+}
+function routeList(u) {
+  var h = '', x = u.x, y = u.y;
+  u.orders.slice(0, 8).forEach(function (o, i) {
+    var tx = o.x, ty = o.y; if (o.k === 'hunt') { var c = app.st.con[app.st.side][o.cid]; if (c) { tx = c.x; ty = c.y; } } else if (o.k === 'haul') { tx = M.cities[o.to][1]; ty = M.cities[o.to][2]; }
+    var L = tx != null ? Math.round(Math.hypot(tx - x, ty - y)) : 0; if (tx != null) { x = tx; y = ty; }
+    h += '<div class="rrow"><b>' + (i + 1) + '</b><div class="g"><div class="n">' + esc(W.orderWord(o)) + (tx != null ? ' → ' + esc(W.placeName(tx, ty)) : '') + '</div><div class="s">' + (L ? L + ' km' : '') + (o.left != null ? ' · ' + Math.round(o.left) + ' min left' : '') + '</div></div><button data-a="rmord:' + u.id + ':' + i + '">✕</button></div>';
+  });
+  return h;
+}
+function reachOf(u) { var d = U[u.type]; return d.air ? d.rad * W.rangeBonus(app.st, u) : d.heli ? d.rad : d.cls === 'arty' ? d.rng : d.naval ? (d.rng || 20) : 12; }
+function uAtk(su, g) {
+  var st = app.st, h = ''; if (st.deploy) return hint('Attack orders unlock when the war starts.');
+  var nvA = g.nv.some(function (d) { return d.sa > 0; }), cas = g.roles.cas, strike = g.roles.strike;
+  h += hint('Pick how to attack, then tap the target on the map (a red ? or unit works).');
+  if (app.selCon != null && st.con[st.side][app.selCon]) h += conInfo();
+  h += '<div class="lbl">Ground and sea</div><div class="chips">';
+  if (g.atk || g.nav) h += (g.atk || nvA ? chip('pick:amove', '⚔ ATTACK-MOVE') + chip('pick:hunt', '🎯 HUNT A CONTACT') : '');
+  if (g.arty) h += chip('pick:fire', '💥 ARTILLERY BARRAGE') + chip('firem', '⏱ ' + (app.fireM || 60) + ' min');
+  if (g.nv.some(function (d) { return d.shore > 0; })) h += chip('pick:bombard', '🚢 SHELL THE COAST');
+  if (!(g.atk || g.nav || g.arty)) h += '<span class="dim">This selection has no ground attack.</span>';
+  h += '</div>';
+  if (g.air || g.heli || g.nv.some(function (d) { return d.cvw; })) {
+    h += '<div class="lbl">Air</div><div class="chips">' + (cas ? chip('pick:cas', '💣 GROUND ATTACK') : '') + (strike ? chip('pick:strike', '🏭 STRIKE CITY / AIRFIELD') + chip('pick:cut', '🚂 CUT RAIL') : '') + (g.nv.some(function (d) { return d.cvw; }) ? chip('pick:strike', '✈ CARRIER STRIKE') + chip('pick:cas', '✈ CARRIER GROUND ATTACK') : '') + (!cas && !strike && !g.nv.length ? '<span class="dim">No attack role.</span>' : '') + '</div>';
+  }
+  // targets in reach of the first unit
+  var u = su[0], R = reachOf(u) * (U[u.type].air || U[u.type].heli ? 1.0 : 1.4), con = st.con[st.side], list = [];
+  for (var id in con) { var c = con[id]; if (c.lv === 'unk' || c.air) continue; var dd = Math.hypot(c.x - u.x, c.y - u.y); if (dd <= Math.max(R, 30)) list.push({ c: c, d: dd }); }
+  list.sort(function (a, b) { return a.d - b.d; });
+  h += '<div class="lbl">Known enemies in reach (' + list.length + ')</div>';
+  if (!list.length) h += '<div class="dim">None. Recon and sensors reveal more.</div>';
+  list.slice(0, 6).forEach(function (t) {
+    var d2 = U[t.c.type] || {}, mode = g.arty ? 'fire' : (g.air || g.heli) ? 'cas' : 'hunt', lab = mode === 'fire' ? 'SHELL' : mode === 'cas' ? 'ATTACK' : 'HUNT';
+    h += '<div class="rrow"><div class="g"><div class="n">' + esc(d2.n || 'Contact') + '</div><div class="s">' + Math.round(t.d) + ' km ' + '· str ' + t.c.str + '%</div></div><button data-a="tgt:' + t.c.id + ':' + mode + '">' + lab + '</button></div>';
+  });
+  if (su.length === 1) h += '<div class="lbl">Record</div><div class="kv"><span>Kills</span><span>' + (su[0].kills || 0) + '</span><span>Last engaged</span><span>' + (su[0].bt > 0 ? 'just now' : 'quiet') + '</span></div>';
+  return h;
+}
+function uTrk(su) {
+  var u = su[0], h = '', t = u.trk || [];
+  h += hint('Where the unit has been. The trail is drawn on the map while this unit is selected.');
+  h += '<div class="chips">' + chip('trail', app.showTrail !== false ? '👁 TRAIL ON' : '👁 TRAIL OFF', '', app.showTrail !== false) + chip('clrtrk', '🧹 CLEAR TRAIL') + '</div>';
+  h += '<div class="kv"><span>Distance travelled</span><span>' + Math.round(u.dist || 0) + ' km</span><span>Trail points</span><span>' + t.length + '</span><span>Now</span><span>' + esc(W.placeName(u.x, u.y)) + '</span></div>';
+  if (su.length > 1) h += '<div class="dim">Showing the first of ' + su.length + ' selected units.</div>';
+  h += '<div class="lbl">Recent positions</div>';
+  if (!t.length) h += '<div class="dim">No movement yet.</div>';
+  t.slice(-8).reverse().forEach(function (q, i) { h += '<div class="rrow"><b>' + (t.length - i) + '</b><div class="g"><div class="n">' + esc(W.placeName(q[0], q[1])) + '</div></div></div>'; });
+  return h;
+}
+function uTask(su, g) {
+  var st = app.st, h = '', u = su[0];
+  h += hint('Special jobs and the order queue. Orders run top to bottom.');
+  h += '<div class="chips">';
+  if (g.air || g.heli) h += (g.roles.cap ? chip('pick:cap', '🛡 PATROL (CIRCLE)') : '') + (g.roles.recon ? chip('pick:recon', '🔍 RECON') : '') + (g.roles.awacs ? chip('pick:awacs', '📡 AWACS ORBIT') : '') + chip('caph', '⏱ ' + app.capH + ' h');
+  if (g.heli && su.some(function (x) { return U[x.type].lift; })) h += chip('pick:lift1', '🚁 AIR-LIFT TROOPS');
+  if (g.nv.some(function (d) { return d.lift; })) h += chip('pick:sealift1', '🚢 SEALIFT TROOPS');
+  if (g.log) h += chip('pick:haul1', '🚚 HAUL SUPPLIES');
+  h += chip('multi', '☑ MULTI-SELECT', '', app.multi) + chip('clear', '✖ CLEAR ALL ORDERS') + '</div>';
+  h += '<div class="lbl">Order queue' + (su.length > 1 ? ' (first unit)' : '') + '</div>';
+  h += u.orders.length ? routeList(u) : '<div class="dim">No orders. This unit is ' + esc(orderText(u)) + '.</div>';
+  if (su.length > 1) {
+    h += '<div class="lbl">Selected units</div><div class="chips">' + chip('selsame', 'SAME TYPE') + chip('selall:ground', 'ALL GROUND') + chip('selall:air', 'ALL AIR') + chip('selall:naval', 'ALL SHIPS') + '</div>';
+    su.slice(0, 30).forEach(function (x) { h += '<div class="urow">' + icoFor(x.type, x.side) + '<div class="g"><div class="n">' + esc(U[x.type].n) + '</div><div class="s">str ' + Math.round(x.str) + ' · ' + orderText(x) + '</div></div><button data-a="unsel:' + x.id + '">✕</button></div>'; });
+  }
+  return h;
+}
+function uHist(su) {
+  var u = su[0], h = hint('What this unit has done and what happened to it.');
+  var l = (u.hist || []).slice().reverse();
+  if (!l.length) return h + '<div class="dim">Nothing yet.</div>';
+  l.forEach(function (e) { h += '<div class="hrow"><span class="mono">' + esc(hmT(e.t)) + '</span><span>' + esc(e.m) + '</span></div>'; });
+  if (su.length > 1) h += '<div class="dim">Showing the first of ' + su.length + ' selected units.</div>';
+  return h;
+}
+function panelUnit() {
+  var su = selUnits(); app.sel = su.map(function (u) { return u.id; }); if (!su.length) return '';
+  var g = groupKinds(su), h = unitHead(su) + pickBanner();
+  var t = app.utab || 'move';
+  h += t === 'atk' ? uAtk(su, g) : t === 'trk' ? uTrk(su) : t === 'task' ? uTask(su, g) : t === 'hist' ? uHist(su) : uMove(su, g);
+  return h;
+}
 function panelBuild() {
   var st = app.st, side = st.side, t = W.tier(st, side), h = '';
   h += '<div class="card"><h3><span>Production points</span><span class="mono">' + st.pts[side].toFixed(1) + '</span></h3><p>Tier ' + t + ' (' + W.tierPoints(st, side).toFixed(0) + ' pts). Tier 2 at 9, tier 3 at 22: one point per day of war and two per battle won. Units appear at the selected city or airfield, or automatically in the rear.</p></div>';
@@ -504,10 +695,11 @@ var lastDock = '', lastTabs = '';
 function renderDock(force) {
   var st = app.st; if (!st || app.screen !== 'game') return; var tb = $('tabs'), bd = $('body'), dk = $('dock'); if (!tb) return;
   dk.className = 'dock h' + app.dock;
-  var tabs = TABS.map(function (t) { var flag = (t[0] === 'esc' && st.esc >= 3) || (t[0] === 'pol' && st.pol[st.side].coh < 35); return '<button data-a="tab:' + t[0] + '" class="' + (app.tab === t[0] ? 'on' : '') + '">' + t[1] + (flag ? ' <i>!</i>' : '') + '</button>'; }).join('') + '<button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>';
+  var um = unitMode();
+  var tabs = um ? UTABS.map(function (t) { return '<button data-a="utab:' + t[0] + '" class="' + ((app.utab || 'move') === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '<button class="x" data-a="selnone">✕</button><button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>' : TABS.map(function (t) { var flag = (t[0] === 'esc' && st.esc >= 3) || (t[0] === 'pol' && st.pol[st.side].coh < 35); return '<button data-a="tab:' + t[0] + '" class="' + (app.tab === t[0] ? 'on' : '') + '">' + t[1] + (flag ? ' <i>!</i>' : '') + '</button>'; }).join('') + '<button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>';
   if (tabs !== lastTabs) { tb.innerHTML = tabs; lastTabs = tabs; }
   if (app.dock === 0) return;
-  var html = PANELS[app.tab](); if (!force && html === lastDock) return;
+  var html = um ? panelUnit() : PANELS[app.tab](); if (!force && html === lastDock) return;
   var keep = bd.scrollTop; bd.innerHTML = html; lastDock = html; bd.scrollTop = keep;
   sizeCanvas();
 }
@@ -554,6 +746,13 @@ document.addEventListener('click', function (ev) {
     case 'speed': if (st && !st.deploy) { app.speed = +arg; paintTop(); renderDock(true); } return;
     case 'ap': st.set.pause[arg] = !st.set.pause[arg]; renderDock(true); return;
     case 'layer': app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
+    case 'utab': app.utab = arg; renderDock(true); return;
+    case 'firem': app.fireM = (app.fireM || 60) === 30 ? 60 : (app.fireM || 60) === 60 ? 120 : 30; renderDock(true); return;
+    case 'trail': app.showTrail = app.showTrail === false; renderDock(true); return;
+    case 'clrtrk': app.sel.forEach(function (id) { var uu = W.unitById(st, id); if (uu) { uu.trk = []; uu.dist = 0; } }); renderDock(true); return;
+    case 'rmord': { var pp = arg.split(':'), ru = W.unitById(st, +pp[0]); if (ru) { ru.orders.splice(+pp[1], 1); ru.path = null; } renderDock(true); return; }
+    case 'unsel': app.sel = app.sel.filter(function (i) { return i !== +arg; }); renderDock(true); return;
+    case 'tgt': { var tp = arg.split(':'), tc = st.con[st.side][+tp[0]]; if (!tc) return; if (tp[1] === 'fire') issue({ k: 'fire', x: tc.x, y: tc.y, mins: app.fireM || 60 }); else if (tp[1] === 'cas') issue({ k: 'cas', cid: +tp[0], x: tc.x, y: tc.y }); else issue({ k: 'hunt', cid: +tp[0] }); return; }
     case 'caph': app.capH = app.capH === 3 ? 6 : app.capH === 6 ? 12 : 3; renderDock(true); return;
     case 'pick': if (!app.sel.length) { toast('Select a unit first.'); return; } startPick(arg); return;
     case 'do': if (!app.sel.length) return; issue({ k: arg }); return;
@@ -598,9 +797,9 @@ function bindCanvas() {
   cv.addEventListener('pointermove', function (e) {
     var p = ptrs[e.pointerId]; if (!p) return; p.x = e.offsetX; p.y = e.offsetY; var ks = Object.keys(ptrs);
     if (ks.length >= 2 && drag.d0 > 0) { var dd = pinchDist(); app.view.z = drag.z0 * dd / drag.d0; clampView(); drag.moved = true; bgDirty = true; return; }
-    if (ks.length === 1) { var dx = p.x - p.sx, dy = p.y - p.sy; if (Math.abs(dx) + Math.abs(dy) > 7) drag.moved = true; if (drag.moved) { app.view.cx = drag.cx - dx / app.view.z; app.view.cy = drag.cy - dy / app.view.z; clampView(); } }
+    if (ks.length === 1) { var dx = p.x - p.sx, dy = p.y - p.sy; if (Math.abs(dx) + Math.abs(dy) > 16) drag.moved = true; if (drag.moved) { app.view.cx = drag.cx - dx / app.view.z; app.view.cy = drag.cy - dy / app.view.z; clampView(); } }
   });
-  function up(e) { var p = ptrs[e.pointerId]; delete ptrs[e.pointerId]; if (p && drag && !drag.moved && Date.now() - p.t < 600 && drag.n === 1) onTap(p.x, p.y); if (!Object.keys(ptrs).length) drag = null; else { drag = { moved: true, cx: app.view.cx, cy: app.view.cy, n: 2, d0: 0, z0: app.view.z }; var q = ptrs[Object.keys(ptrs)[0]]; q.sx = q.x; q.sy = q.y; } }
+  function up(e) { var p = ptrs[e.pointerId]; delete ptrs[e.pointerId]; if (p && drag && !drag.moved && drag.n === 1) { var held = Date.now() - p.t; if (held < 450 || held >= 1800) onTap(p.x, p.y); else if (app.sel.length && !app.pick && !app.st.deploy && app.sel.some(function (id) { var uu = W.unitById(app.st, id); return uu && !U[uu.type].air; })) { app.pick = { kind: 'move' }; onTap(p.x, p.y); } else onTap(p.x, p.y); } if (!Object.keys(ptrs).length) drag = null; else { drag = { moved: true, cx: app.view.cx, cy: app.view.cy, n: 2, d0: 0, z0: app.view.z }; var q = ptrs[Object.keys(ptrs)[0]]; q.sx = q.x; q.sy = q.y; } }
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', function (e) { delete ptrs[e.pointerId]; drag = null; });
   cv.addEventListener('wheel', function (e) { e.preventDefault(); var wp = s2w(e.offsetX, e.offsetY); app.view.z *= e.deltaY < 0 ? 1.2 : 1 / 1.2; clampView(); var wp2 = s2w(e.offsetX, e.offsetY); app.view.cx += wp.x - wp2.x; app.view.cy += wp.y - wp2.y; bgDirty = true; }, { passive: false });
 }
