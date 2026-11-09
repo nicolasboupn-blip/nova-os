@@ -91,7 +91,7 @@ function findPath(mode, x0, y0, x1, y1) {
       var step = (dx && dy) ? 1.414 : 1, c;
       if (mode === 'n') { if (!G.nav[ni] && ni !== t) continue; c = step; }
       else if (mode === 'r') { if (!G.railD[ni] && ni !== t && ni !== s) continue; c = step; }
-      else c = step * (G.road[ni] ? 1 : 2.4) * (G.bloc[ni] === 3 ? 6 : 1);
+      else c = step * (G.road[ni] ? 1 : 4) * (G.bloc[ni] === 3 ? 6 : 1);
       var nc = cost[cur] + c; if (nc < cost[ni]) { cost[ni] = nc; prev[ni] = cur; var h = Math.max(Math.abs(nx - tx), Math.abs(ny - ty)) * (mode === 'r' ? 1 : 1); heap.push(nc + h, ni); }
     }
   }
@@ -515,7 +515,7 @@ function detect(st) {
 /* ============================================================ movement */
 function speedOn(u, d, st) {
   var onRoad = G.road[cellOf(u.x, u.y)];
-  var s = d.sp * (onRoad ? 1 : 0.42) * (u.sup > 5 ? 1 : 0.6);
+  var s = d.sp * (onRoad ? 1.3 : 0.3) * (u.sup > 5 ? 1 : 0.6);
   if (inFallout(st, u.x, u.y)) s *= 0.6;
   if (u.dig > 0 && u.orders.length && u.orders[0].k !== 'dig') u.dig = 0;
   return s;
