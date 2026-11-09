@@ -1082,6 +1082,13 @@ function neutralViolation(st, side, name, x, y) {
   ev(st, 'pol', side + ' forces entered neutral ' + name + '. World opinion shifts.', x, y); logm(st, side + ' violated neutrality at ' + name + '.', side === st.side ? 'bad' : 'warn');
 }
 var BCODE = { NATO: 1, PACT: 2 }, BV = 0;
+function paintCityDisc(st, i, side) {
+  var C = MAP.cities[i], R = 16 + Math.min(18, C[3] / 60), cx = Math.floor(C[1] / G.cell), cy = Math.floor(C[2] / G.cell), rc = Math.ceil(R / G.cell); st.bchg = st.bchg || {};
+  for (var y = cy - rc; y <= cy + rc; y++) for (var x = cx - rc; x <= cx + rc; x++) {
+    if (x < 0 || y < 0 || x >= G.w || y >= G.h) continue; var k = y * G.w + x, b = G.bloc0[k];
+    if ((b === 1 || b === 2) && dist((x + .5) * G.cell, (y + .5) * G.cell, C[1], C[2]) <= R) st.bchg[k] = BCODE[side];
+  }
+}
 // repaint territory: cells near a captured city take the new owner's colour (land cells of the two blocs only)
 function refreshBloc(st) {
   setEra(st.era); G.bloc.set(G.bloc0);
@@ -1094,11 +1101,36 @@ function refreshBloc(st) {
       if ((b === 1 || b === 2) && dist((x + .5) * G.cell, (y + .5) * G.cell, C[1], C[2]) <= R) G.bloc[k] = BCODE[o1];
     }
   }
+  if (st.bchg) for (var kk in st.bchg) G.bloc[kk] = st.bchg[kk];
   st.blocV = ++BV;
+}
+// ---- zones of control: every ground fighting unit holds a circle (bigger = stronger).
+// No enemy ground unit inside it -> the unit takes the land inside (territory repaints to its side).
+function zoneR(u) {
+  var d = U[u.type]; if (!d.ground || d.heli || d.naval || d.air || u.str <= 0 || u.cargoed) return 0;
+  if (d.cls === 'train' || d.cls === 'convoy' || d.cls === 'eng') return 0;
+  var r = (8 + 0.9 * ((d.a || 0) + (d.d || 0))) * (0.55 + 0.45 * Math.min(100, u.str) / 100);
+  if (d.cls === 'arty' || d.cls === 'ssm' || d.cls === 'aa') r *= 0.6;
+  return Math.max(9, Math.min(34, r));
+}
+function zoneStep(st, dt) {
+  st.zt = (st.zt || 0) + dt; if (st.zt < 15) return; st.zt = 0;
+  var gu = st.units.filter(function (u) { return zoneR(u) > 0 && u.state !== 'fly'; }), changed = false;
+  st.bchg = st.bchg || {};
+  gu.forEach(function (u) {
+    var R = zoneR(u), code = BCODE[u.side]; if (!code || st.deploy) return;
+    for (var i = 0; i < gu.length; i++) { var e = gu[i]; if (e.side !== u.side && dist(e.x, e.y, u.x, u.y) <= Math.max(R, zoneR(e))) return; }   // contested: nobody takes it
+    var cx = Math.floor(u.x / G.cell), cy = Math.floor(u.y / G.cell), rc = Math.ceil(R / G.cell);
+    for (var y = cy - rc; y <= cy + rc; y++) for (var x = cx - rc; x <= cx + rc; x++) {
+      if (x < 0 || y < 0 || x >= G.w || y >= G.h) continue; var k = y * G.w + x, b = G.bloc[k];
+      if ((b === 1 || b === 2) && b !== code && dist((x + .5) * G.cell, (y + .5) * G.cell, u.x, u.y) <= R) { G.bloc[k] = code; st.bchg[k] = code; changed = true; }
+    }
+  });
+  if (changed) st.blocV = ++BV;
 }
 function flipCity(st, i, side) {
   st.units.forEach(function (u) { if (u.side === side && u.str > 0 && dist(u.x, u.y, MAP.cities[i][1], MAP.cities[i][2]) < 9 && (U[u.type].ground)) uhist(st, u, 'Took ' + MAP.cities[i][0] + '.'); });
-  var cd = st.cd[i], C = MAP.cities[i], was = cd.o; cd.o = side; cd.cp = 0; refreshBloc(st); cd.stk = Math.floor(cd.stk * 0.4); cd.inf = Math.max(20, cd.inf - 25);
+  var cd = st.cd[i], C = MAP.cities[i], was = cd.o; cd.o = side; cd.cp = 0; paintCityDisc(st, i, side); refreshBloc(st); cd.stk = Math.floor(cd.stk * 0.4); cd.inf = Math.max(20, cd.inf - 25);
   var wv = 0.6 + C[3] / 500 + (C[5] ? 6 : 0);
   st.will[was] -= wv * 0.7; st.will[side] += wv * 0.3;
   logm(st, side + ' takes ' + C[0] + (C[5] ? ' (capital)' : '') + '.', side === st.side ? 'good' : 'bad');
@@ -1656,6 +1688,7 @@ function checkEnd(st) {
 
 /* ============================================================ the clock */
 function step(st, dt) {
+  zoneStep(st, dt);
   dt = dt || STEP; st.t += dt;
   st.units.forEach(function (u) { var d = U[u.type]; if (!d.air && !d.heli && !d.naval && u.str > 0 && !u.cargoed) moveGround(st, u, dt); });
   navalStep(st, dt);
@@ -1698,7 +1731,7 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus };
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;

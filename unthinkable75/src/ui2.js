@@ -165,7 +165,7 @@ var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '
 function draw() {
   var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (geo.stRef !== st) { geo.stRef = st; W.refreshBloc(st); }
-  if (geo.blocV !== st.blocV) { makeBlocImg(); bgDirty = true; }
+  if (geo.blocV !== st.blocV && (Date.now() - (geo.blocT || 0) > 600 || geo.stRef2 !== st)) { geo.blocT = Date.now(); geo.stRef2 = st; makeBlocImg(); bgDirty = true; }
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.fillStyle = '#0a1a24'; ctx.fillRect(0, 0, cw, ch);
   var s = z / bgView.z; ctx.drawImage(bg, cw / 2 - cw / 2 * s + (bgView.cx - v.cx) * z, ch / 2 - ch / 2 * s + (bgView.cy - v.cy) * z, cw * s, ch * s);
@@ -179,6 +179,12 @@ function draw() {
     var samDraw = function (x, y, r, sd) { var pq = w2s(x, y); if (pq[0] < -r * z || pq[1] < -r * z || pq[0] > cw + r * z || pq[1] > ch + r * z) return; ctx.beginPath(); ctx.arc(pq[0], pq[1], r * z, 0, 7); ctx.fillStyle = sd === side ? 'rgba(80,160,255,.07)' : 'rgba(255,90,70,.08)'; ctx.fill(); ctx.setLineDash([3, 5]); ctx.lineWidth = 1.2; ctx.strokeStyle = sd === side ? 'rgba(110,175,255,.55)' : 'rgba(255,110,90,.65)'; ctx.stroke(); ctx.setLineDash([]); };
     st.units.forEach(function (ua) { var da = U[ua.type]; if (ua.side === side && da.cls === 'aa' && ua.str > 0 && !ua.cargoed) samDraw(ua.x, ua.y, da.rng, side); });
     for (var cid in con) { var cq = con[cid]; if (cq.lv === 'id' && cq.type && U[cq.type].cls === 'aa') samDraw(cq.x, cq.y, U[cq.type].rng, W.OTHER[side]); }
+  }
+  // zone-of-control circles: bigger = stronger; nobody of the enemy inside -> the unit claims the land
+  if (z >= 0.3) {
+    var zdraw = function (x, y, r, sd, strong) { var pq = w2s(x, y), rr2 = r * z; if (pq[0] < -rr2 || pq[1] < -rr2 || pq[0] > cw + rr2 || pq[1] > ch + rr2) return; ctx.beginPath(); ctx.arc(pq[0], pq[1], rr2, 0, 7); ctx.fillStyle = sd === side ? 'rgba(120,200,255,' + (strong ? .2 : .08) + ')' : 'rgba(255,130,100,' + (strong ? .2 : .09) + ')'; ctx.fill(); ctx.setLineDash(strong ? [] : [6, 4]); ctx.lineWidth = strong ? 2.4 : 1.4; ctx.strokeStyle = sd === side ? 'rgba(190,230,255,' + (strong ? 1 : .7) + ')' : 'rgba(255,150,125,' + (strong ? 1 : .75) + ')'; ctx.stroke(); ctx.setLineDash([]); };
+    st.units.forEach(function (ua) { if (ua.side !== side) return; var rz = W.zoneR(ua); if (rz > 0) zdraw(ua.x, ua.y, rz, side, app.sel.indexOf(ua.id) >= 0); });
+    for (var zid in con) { var zc = con[zid]; if (zc.lv === 'id' && zc.type && U[zc.type].ground) { var rz2 = W.zoneR({ type: zc.type, str: 100 }); if (rz2 > 0) zdraw(zc.x, zc.y, rz2, W.OTHER[side], false); } }
   }
   // cities
   if (app.layers.cities) for (var i = 0; i < M.cities.length; i++) {
@@ -489,7 +495,7 @@ function unitHead(su) {
   var h = '';
   if (su.length === 1) {
     var u = su[0], d = U[u.type];
-    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div></div><div class="bars">' +
+    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + '</div><div class="bars">' +
       '<span>STR</span>' + bar(u.str, u.str > 60 ? '' : u.str > 30 ? 'w' : 'r') + '<span>SUPPLY</span>' + bar(u.sup, u.sup > 40 ? '' : u.sup > 15 ? 'w' : 'r') + '<span>MORALE</span>' + bar(u.mor, u.mor > 50 ? '' : u.mor > 25 ? 'w' : 'r') + (d.air ? '<span>FUEL</span>' + bar(u.fuel / (d.rad * 2) * 100, 'c') : '') + (d.msl ? '<span>' + esc(d.mname || 'MISSILES').toUpperCase() + ' ' + Math.floor(u.msl) + '/' + d.msl + '</span>' + bar(u.msl / d.msl * 100, u.msl >= 1 ? 'c' : 'r') : '') + '</div></div>';
   } else {
     var types = {}; su.forEach(function (u) { types[U[u.type].n] = (types[U[u.type].n] || 0) + 1; });
