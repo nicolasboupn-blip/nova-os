@@ -49,8 +49,8 @@ function setupCanvas(stage) {
   sizeCanvas();
 }
 function sizeCanvas() {
-  if (!cv) return; var r = cv.parentNode.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
-  var w = Math.max(10, Math.floor(r.width)), h = Math.max(10, Math.floor(r.height));
+  if (!cv) return; var pn = cv.parentNode; dpr = Math.min(2, window.devicePixelRatio || 1);
+  var w = Math.max(10, pn.clientWidth), h = Math.max(10, pn.clientHeight);
   if (w === cw && h === ch) return; cw = w; ch = h; cv.width = w * dpr; cv.height = h * dpr; bg.width = w * dpr; bg.height = h * dpr; bgDirty = true;
 }
 function clampView() { var v = app.view; v.z = clamp(v.z, Math.max(0.12, Math.min(cw / M.W, ch / M.H) * 0.9), 9); v.cx = clamp(v.cx, 0, M.W); v.cy = clamp(v.cy, 0, M.H); }
@@ -131,7 +131,7 @@ function orderPts(u) {
 }
 var KCOL = { move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
 function draw() {
-  var st = app.st; if (!st || !ctx) return; var v = app.view, z = v.z, side = st.side, con = st.con[side];
+  var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#0a1a24'; ctx.fillRect(0, 0, cw, ch);
   var s = z / bgView.z; ctx.drawImage(bg, cw / 2 - cw / 2 * s + (bgView.cx - v.cx) * z, ch / 2 - ch / 2 * s + (bgView.cy - v.cy) * z, cw * s, ch * s);
@@ -217,3 +217,381 @@ function pickAt(sx, sy) {
   for (i = 0; i < M.cities.length; i++) { var C = M.cities[i], p4 = w2s(C[1], C[2]), d4 = Math.hypot(p4[0] - sx, p4[1] - sy); if (d4 < 17) out.push({ t: 'c', i: i, d: d4 + 3 }); }
   out.sort(function (a, b) { return a.d - b.d; }); return out;
 }
+
+/* ---------- order picking ---------- */
+var PICKTXT = { move: 'Tap the map: where should it go?', amove: 'Tap the map: attack-move there (fights anything on the way).', hunt: 'Tap an enemy contact (identified or ?) to hunt it down.', cas: 'Tap an enemy contact or a spot for the ground attack.',
+  strike: 'Tap an enemy city or airfield to bomb, or any spot.', cut: 'Tap a railway line to cut it with a strike.', recon: 'Tap the map: recon flight to there.', cap: 'Tap the map: combat air patrol over there.', awacs: 'Tap the map: AWACS station.',
+  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', nuke: 'Tap the target for the strike.' };
+function startPick(kind, extra) { app.pick = { kind: kind }; if (extra) for (var k in extra) app.pick[k] = extra[k]; paintBanner(); }
+function endPick() { app.pick = null; app.addStop = false; paintBanner(); renderDock(true); }
+function issue(cmd) {
+  var r = W.issue(app.st, app.sel, cmd, app.addStop);
+  if (!r.ok) { toast(r.msg); return false; }
+  renderDock(true); return true;
+}
+function handlePick(sx, sy) {
+  var st = app.st, p = app.pick, k = p.kind, w = s2w(sx, sy), hits = pickAt(sx, sy), first = function (t) { for (var i = 0; i < hits.length; i++) if (hits[i].t === t) return hits[i]; return null; };
+  var ok = false;
+  if (k === 'move' || k === 'amove') {
+    if (st.deploy) { var any = false; app.sel.forEach(function (id) { if (W.deployMove(st, id, w.x, w.y)) any = true; }); if (!any) toast('Place units on your own territory (aircraft: use BASE AT).'); else ok = true; }
+    else { if (!W.isLand(w.x, w.y) && !app.sel.some(function (id) { var u = W.unitById(st, id); return u && W.isHeli(u); })) { toast('That is water.'); return; } ok = issue({ k: k, x: w.x, y: w.y }); }
+  } else if (k === 'hunt') { var c = first('k'); if (!c) { toast('No contact there.'); return; } ok = issue({ k: 'hunt', cid: c.id }); }
+  else if (k === 'cas') { var c2 = first('k'); ok = issue(c2 ? { k: 'cas', cid: c2.id, x: st.con[st.side][c2.id].x, y: st.con[st.side][c2.id].y } : { k: 'cas', x: w.x, y: w.y }); }
+  else if (k === 'strike') {
+    var cc = first('c'), aa = first('a'), foe = W.OTHER[st.side];
+    if (aa && st.ad[aa.i].o === foe) ok = issue({ k: 'strike', x: M.air[aa.i][2], y: M.air[aa.i][3], node: { t: 'a', i: aa.i } });
+    else if (cc && st.cd[cc.i].o === foe) ok = issue({ k: 'strike', x: M.cities[cc.i][1], y: M.cities[cc.i][2], node: { t: 'c', i: cc.i } });
+    else ok = issue({ k: 'strike', x: w.x, y: w.y });
+  } else if (k === 'cut') ok = issue({ k: 'strike', x: w.x, y: w.y, node: { t: 'r' } });
+  else if (k === 'recon' || k === 'awacs') ok = issue({ k: k, x: w.x, y: w.y, h: app.capH });
+  else if (k === 'cap') ok = issue({ k: 'cap', x: w.x, y: w.y, h: app.capH });
+  else if (k === 'land') {
+    var a = first('a'); if (!a || st.ad[a.i].o !== st.side) { toast('Tap one of your own airfields.'); return; }
+    if (st.deploy) { var d = false; app.sel.forEach(function (id) { if (W.deployMove(st, id, 0, 0, a.i)) d = true; }); ok = d; if (!d) toast('Only aircraft can be based there.'); }
+    else ok = issue({ k: 'land', af: a.i, x: M.air[a.i][2], y: M.air[a.i][3] });
+  } else if (k === 'haul1') { var c3 = first('c'); if (!c3 || st.cd[c3.i].o !== st.side) { toast('Tap a friendly city.'); return; } p.from = c3.i; p.kind = 'haul2'; paintBanner(); return; }
+  else if (k === 'haul2') { var c4 = first('c'); if (!c4 || st.cd[c4.i].o !== st.side || c4.i === p.from) { toast('Tap a different friendly city.'); return; } ok = issue({ k: 'haul', from: p.from, to: c4.i }); }
+  else if (k === 'lift1') { var u1 = first('u'); var lu = u1 && W.unitById(st, u1.id); if (!lu || ['inf', 'vdv', 'cav', 'brdm', 'eng', 'peng'].indexOf(lu.type) < 0) { toast('Helicopters lift infantry, cavalry and engineers.'); return; } p.uid = lu.id; p.kind = 'lift2'; paintBanner(); return; }
+  else if (k === 'lift2') ok = issue({ k: 'lift', uid: p.uid, x: w.x, y: w.y });
+  else if (k === 'nuke') { p.at = { x: w.x, y: w.y }; var del = W.deliveryFor(st, st.side, w.x, w.y); app.modal = { type: 'nuke', id: p.id, x: w.x, y: w.y, del: del, R: p.R }; renderModal(); return; }
+  if (ok && !app.addStop) endPick(); else if (ok) { paintBanner(); }
+}
+
+/* ---------- selection ---------- */
+function selectUnit(id, additive) {
+  var i = app.sel.indexOf(id);
+  if (additive || app.multi) { if (i >= 0) app.sel.splice(i, 1); else app.sel.push(id); } else app.sel = [id];
+  app.selNode = null; app.selCon = null; app.tab = 'units'; if (!app.dock) app.dock = 1; renderDock(true);
+}
+function onTap(sx, sy) {
+  if (app.pick) { handlePick(sx, sy); return; }
+  var hits = pickAt(sx, sy);
+  if (!hits.length) { app.sel = []; app.selNode = null; app.selCon = null; renderDock(true); return; }
+  // cycle through stacked own units on repeated taps
+  var unitsHit = hits.filter(function (h) { return h.t === 'u'; });
+  var h = hits[0];
+  if (unitsHit.length > 1 && h.t === 'u') { var idx = unitsHit.findIndex(function (x) { return app.sel.length === 1 && app.sel[0] === x.id; }); h = unitsHit[(idx + 1) % unitsHit.length]; }
+  if (h.t === 'u') { selectUnit(h.id); return; }
+  if (h.t === 'k') { app.selCon = h.id; app.selNode = null; if (!app.multi) app.sel = app.sel; app.tab = 'units'; if (!app.dock) app.dock = 1; renderDock(true); return; }
+  app.selNode = { t: h.t, i: h.i }; app.selCon = null; if (!app.multi) app.sel = []; app.tab = 'units'; if (!app.dock) app.dock = 1; renderDock(true);
+}
+
+/* ---------- panels ---------- */
+function icoFor(type, side) {
+  var d = U[type], k = d.air ? (d.cls === 'awacs' ? 'awacs' : d.cls === 'tanker' ? 'tanker' : 'jet') : d.heli ? 'heli' : ({ gnd: (type === 'armor' || type === 'tank' || type === 'gtank') ? 'tank' : (type === 'inf' || type === 'vdv') ? 'apc' : 'ifv', recon: 'ifv', arty: 'arty', aa: 'spaa', eng: 'eng', train: 'train', convoy: 'truck', ssm: 'missile' })[d.cls] || 'tank';
+  return '<svg class="ico ' + side + '" viewBox="0 0 48 28"><use href="#i-' + k + '"/></svg>';
+}
+function bar(v, c) { return '<div class="bar ' + (c || '') + '"><i style="width:' + clamp(v, 0, 100) + '%"></i></div>'; }
+function orderText(u) {
+  var o = u.orders && u.orders[0], st = app.st; if (U[u.type].air && u.state === 'base') return o ? 'ready: ' + o.k : 'on the ground';
+  if (u.broken) return 'broken, falling back'; if (!o) return U[u.type].air || U[u.type].heli ? (u.state === 'fly' ? 'returning' : 'landed') : (u.dig >= 1 ? 'dug in' : u.dig > 0 ? 'digging in' : 'idle');
+  var n = u.orders.length > 1 ? ' +' + (u.orders.length - 1) : '';
+  var m = { move: 'moving', amove: 'attack-move', hunt: 'hunting', hold: 'holding', dig: 'digging in', wait: 'waiting', haul: 'hauling', cas: 'ground attack', strike: 'strike', recon: 'recon', cap: 'patrol', awacs: 'AWACS', rtb: 'returning', land: 'landing', lift: 'air assault' };
+  return (m[o.k] || o.k) + n;
+}
+function chip(a, label, extra, on) { return '<button data-a="' + a + '"' + (on ? ' class="on"' : '') + (extra ? ' ' + extra : '') + '>' + label + '</button>'; }
+function cmdChips(su) {
+  var st = app.st, h = '', anyG = su.some(function (u) { var d = U[u.type]; return d.ground && !d.heli && d.cls !== 'train'; }), anyT = su.some(function (u) { return ['train', 'convoy'].indexOf(U[u.type].cls) >= 0; }),
+    anyA = su.some(function (u) { return U[u.type].air; }), anyH = su.some(function (u) { return U[u.type].heli; }), roles = {};
+  su.forEach(function (u) { (U[u.type].roles || []).forEach(function (r) { roles[r] = 1; }); if (U[u.type].heli && U[u.type].a2g) roles.cas = 1; });
+  var anyAtk = su.some(function (u) { return U[u.type].a > 0 && U[u.type].ground && !U[u.type].heli; });
+  if (st.deploy) { h += '<div class="chips">' + (anyG || anyT || anyH ? chip('pick:move', 'PLACE') : '') + (anyA ? chip('pick:land', 'BASE AT') : '') + '</div>'; return h; }
+  h += '<div class="chips">';
+  if (anyG || anyT) h += chip('pick:move', 'MOVE');
+  if (anyAtk) h += chip('pick:amove', 'ATTACK-MOVE') + chip('pick:hunt', 'HUNT');
+  if (anyG) h += chip('do:dig', 'DIG IN') + chip('do:hold', 'HOLD');
+  if (anyT) h += chip('pick:haul1', 'HAUL SUPPLIES');
+  if (anyH) h += chip('pick:move', 'FLY TO') + (roles.cas ? chip('pick:cas', 'ATTACK') : '') + (su.some(function (u) { return U[u.type].lift; }) ? chip('pick:lift1', 'LIFT TROOPS') : '');
+  if (anyA) h += (roles.cas ? chip('pick:cas', 'GROUND ATTACK') : '') + (roles.strike ? chip('pick:strike', 'STRIKE') + chip('pick:cut', 'CUT RAIL') : '') + (roles.cap ? chip('pick:cap', 'PATROL') : '') + (roles.recon ? chip('pick:recon', 'RECON') : '') + (roles.awacs ? chip('pick:awacs', 'AWACS STATION') : '') + chip('pick:land', 'LAND AT');
+  h += '</div><div class="chips">' + chip('stop', '+ STOP', '', app.addStop) + (anyA || su.some(function (u) { return U[u.type].heli; }) ? chip('caph', 'PATROL ' + app.capH + 'h') : '') + chip('clear', 'CLEAR ORDERS') + chip('multi', 'MULTI', '', app.multi) + '</div>';
+  return h;
+}
+function nodeInfo() {
+  var st = app.st, n = app.selNode, h = ''; if (!n) return h;
+  if (n.t === 'c') {
+    var C = M.cities[n.i], cd = st.cd[n.i];
+    h += '<div class="card"><h3><span>' + esc(C[0]) + (C[5] ? ' ★' : '') + '</span><span class="mono" style="color:' + SIDE_COL[cd.o] + '">' + cd.o + '</span></h3><div class="kv"><span>Population (approx)</span><span>' + C[3] + 'k</span><span>Supply stock</span><span>' + Math.round(cd.stk) + '</span><span>Infrastructure</span><span>' + Math.round(cd.inf) + '%</span><span>Rail from the rear</span><span>' + (cd.conn ? 'yes' : 'cut off') + '</span></div></div>';
+    if (cd.o === st.side) h += '<div class="chips">' + chip('buyat:c' + n.i, 'DEPLOY NEW UNITS HERE') + '</div>';
+  } else {
+    var A = M.air[n.i], ad = st.ad[n.i], wings = st.units.filter(function (u) { return u.side === st.side && U[u.type].air && u.state === 'base' && u.base === n.i && u.str > 0; });
+    h += '<div class="card"><h3><span>' + esc(A[0]) + '</span><span class="mono" style="color:' + SIDE_COL[ad.o] + '">' + ad.o + '</span></h3><div class="kv"><span>Runway</span><span>' + A[4] + ' m</span><span>Class</span><span>' + ['', 'small', 'medium', 'large'][A[5]] + (A[6] ? ', military' : '') + '</span><span>Runway damage</span><span>' + Math.round(ad.dmg * 100) + '%</span><span>Wings here</span><span>' + wings.length + '</span></div></div>';
+    if (ad.o === st.side) {
+      h += '<div class="chips">' + chip('buyat:a' + n.i, 'DEPLOY NEW AIRCRAFT HERE') + (wings.length ? chip('selwings:' + n.i, 'SELECT ALL WINGS') : '') + '</div>';
+      wings.forEach(function (u) { h += '<div class="urow" data-a="selu:' + u.id + '">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(U[u.type].n) + '</div><div class="s">str ' + Math.round(u.str) + '% · ' + (u.rdy > st.t ? 'ready in ' + Math.ceil((u.rdy - st.t) / 60) + 'h' : 'ready') + (u.orders.length ? ' · ' + orderText(u) : '') + '</div></div></div>'; });
+    }
+  }
+  return h;
+}
+function conInfo() {
+  var st = app.st, c = st.con[st.side][app.selCon], h = ''; if (!c) return h;
+  var age = Math.round((st.t - c.t) / 60);
+  h += '<div class="card"><h3><span>' + (c.lv === 'unk' ? 'Unknown contact' : esc(U[c.type].n)) + '</span><span class="mono warn">' + (c.lv === 'id' ? 'IDENTIFIED' : c.lv === 'old' ? 'LAST KNOWN' : 'UNKNOWN') + '</span></h3><div class="kv">' + (c.type ? '<span>Strength</span><span>' + c.str + '%</span>' : '<span>Size</span><span>' + (c.size || '?') + '</span>') + '<span>Last seen</span><span>' + (age < 1 ? 'now' : age + 'h ago') + '</span>' + (c.lv === 'unk' ? '<span>Position error</span><span>~' + Math.round(c.err) + ' km</span>' : '') + '</div></div>';
+  if (app.sel.length) h += '<div class="chips">' + chip('huntsel', 'HUNT WITH SELECTED') + chip('strikecon', 'AIR STRIKE WITH SELECTED') + '</div>'; else h += '<div class="note">Select your own units first, then send them after this contact.</div>';
+  return h;
+}
+function panelUnits() {
+  var st = app.st, su = app.sel.map(function (id) { return W.unitById(st, id); }).filter(Boolean), h = '';
+  app.sel = su.map(function (u) { return u.id; });
+  if (app.pick) h += '<div class="note">' + esc(PICKTXT[app.pick.kind] || '') + '</div>';
+  if (!su.length && !app.selNode && app.selCon == null) {
+    h += '<div class="note">Tap one of your units, an airfield or a city on the map. Drag to pan, pinch to zoom.</div><div class="chips">' + chip('selall:ground', 'SELECT ALL GROUND') + chip('selall:air', 'SELECT ALL AIR') + chip('selall:heli', 'ALL HELICOPTERS') + '</div>';
+    return h;
+  }
+  if (su.length) {
+    h += '<div class="chips">' + chip('selsame', 'SAME TYPE') + chip('selall:ground', 'ALL GROUND') + chip('selall:air', 'ALL AIR') + chip('selnone', 'DESELECT') + '</div>';
+    su.slice(0, 40).forEach(function (u) {
+      var d = U[u.type], extra = d.air ? ' · fuel ' + Math.max(0, Math.round(u.fuel)) + ' km' : '';
+      h += '<div class="urow" data-a="selu:' + u.id + '" data-keep="1">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">str ' + Math.round(u.str) + ' · sup ' + Math.round(u.sup) + ' · mor ' + Math.round(u.mor) + ' · ' + orderText(u) + extra + '</div>' + bar(u.str, u.str > 60 ? '' : u.str > 30 ? 'w' : 'r') + '</div></div>';
+    });
+    if (su.length > 40) h += '<div class="dim">+' + (su.length - 40) + ' more selected</div>';
+    h += cmdChips(su);
+  }
+  h += conInfo() + nodeInfo();
+  return h;
+}
+function panelBuild() {
+  var st = app.st, side = st.side, t = W.tier(st, side), h = '';
+  h += '<div class="card"><h3><span>Production points</span><span class="mono">' + st.pts[side].toFixed(1) + '</span></h3><p>Tier ' + t + ' (' + W.tierPoints(st, side).toFixed(0) + ' pts). Tier 2 at 9, tier 3 at 22: one point per day of war and two per battle won. Units appear at the selected city or airfield, or automatically in the rear.</p></div>';
+  var at = app.buyAt; h += '<div class="note">Deploy at: <b>' + (at ? esc(at.t === 'c' ? M.cities[at.i][0] : M.air[at.i][0]) : 'automatic') + '</b> ' + (at ? chip('buyat:none', 'AUTO') : '') + '</div>';
+  var q = st.queue.filter(function (x) { return x.side === side; });
+  if (q.length) h += '<div class="lbl">In production</div><div class="card">' + q.map(function (x, i) { return '<div class="urow">' + icoFor(x.type, side) + '<div class="g"><div class="n">' + esc(U[x.type].n) + '</div><div class="s">arrives in ' + Math.ceil(x.eta / 60) + 'h</div></div>' + (x.eta > U[x.type].eta * 60 - 20 ? chip('unbuy:' + st.queue.indexOf(x), 'undo') : '') + '</div>'; }).join('') + '</div>';
+  h += '<div class="lbl">Available</div><div class="card">' + W.unitsFor(side, t).sort(function (a, b) { return U[a].tier - U[b].tier || U[a].cost - U[b].cost; }).map(function (k) {
+    var d = U[k]; return '<div class="urow">' + icoFor(k, side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">cost ' + d.cost + ' · ' + d.eta + 'h' + (d.air ? ' · air' : d.heli ? ' · heli' : '') + (d.nuke ? ' · nuclear-capable' : '') + '</div>' + (d.note ? '<div class="s">' + esc(d.note) + '</div>' : '') + '</div>' + '<button data-a="buy:' + k + '"' + (st.pts[side] >= d.cost ? '' : ' disabled') + '>+</button></div>';
+  }).join('') + '</div>';
+  if (t < 3) h += '<div class="note">Tier ' + (t + 1) + ' unlocks: ' + W.unitsFor(side, 3).filter(function (k) { return U[k].tier === t + 1; }).map(function (k) { return esc(U[k].n); }).join(', ') + '.</div>';
+  return h;
+}
+function panelManage() {
+  var st = app.st, h = '';
+  if (st.deploy) h += '<div class="note good"><b>Deployment.</b> Tap a unit, then PLACE and tap a spot in your own territory (aircraft: BASE AT, tap an airfield). When you are ready press START WAR.</div><div class="chips">' + chip('start', 'START WAR') + '</div>';
+  h += '<div class="lbl">Time</div><div class="chips">' + SPEEDS.map(function (s, i) { return chip('speed:' + i, i ? '▶'.repeat(Math.min(i, 3)) + (i === 4 ? '⏩' : '') + ' ' + SPEEDN[i] : '⏸ pause', '', app.speed === i); }).join('') + '</div>';
+  h += '<div class="lbl">Auto-pause when</div><div class="chips">' + [['contact', 'new contact'], ['battle', 'battle starts'], ['lost', 'unit lost'], ['nuke', 'nuclear event'], ['idle', 'unit idle']].map(function (x) { return chip('ap:' + x[0], x[1], '', st.set.pause[x[0]]); }).join('') + '</div>';
+  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts']].map(function (x) { return chip('layer:' + x[0], x[1], '', app.layers[x[0]]); }).join('') + '</div>';
+  var v = W.vpShift(st), me = st.side;
+  h += '<div class="card"><h3>War status</h3><div class="kv"><span>Day</span><span>' + W.dayOf(st) + ' / ' + W.MAX_DAYS + '</span><span>NATO will</span><span>' + Math.round(st.will.NATO) + '</span><span>Pact will</span><span>' + Math.round(st.will.PACT) + '</span><span>Ground gained, NATO</span><span>' + Math.round(v.NATO * 100) + '%</span><span>Ground gained, Pact</span><span>' + Math.round(v.PACT * 100) + '%</span><span>Units lost N/P</span><span>' + st.stats.lost.NATO + ' / ' + st.stats.lost.PACT + '</span></div><p>First to gain 28% of the other side\'s value wins; if will hits zero that side collapses.</p></div>';
+  h += '<div class="chips">' + chip('save', 'SAVE') + chip('menu', 'MENU') + chip('cease', 'PROPOSE CEASEFIRE') + '</div>';
+  return h;
+}
+function panelIntel() {
+  var st = app.st, con = st.con[st.side], list = [], h = '', v = app.view;
+  for (var id in con) list.push(con[id]);
+  list.sort(function (a, b) { return W.dist(a.x, a.y, v.cx, v.cy) - W.dist(b.x, b.y, v.cx, v.cy); });
+  var aw = st.units.filter(function (u) { return u.side === st.side && U[u.type].cls === 'awacs' && u.str > 0; }).length;
+  h += '<div class="card"><h3>Sensors</h3><div class="kv"><span>Contacts held</span><span>' + list.length + '</span><span>AWACS aircraft</span><span>' + aw + '</span>' + (st.side === 'NATO' ? '<span>Tankers (extend range)</span><span>' + W.tankersOf(st, 'NATO') + '</span>' : '') + '</div><p>Units you can see up close are <span class="good">identified</span>. Farther out your radios and radars pick up <span class="warn">unknown contacts</span> (?) with an area, not a spot. Send recon, helicopters or a division to find out what they are.</p></div>';
+  h += '<div class="lbl">Contacts nearest the view</div>';
+  list.slice(0, 40).forEach(function (c) { h += '<div class="urow" data-a="selcon:' + c.id + '">' + (c.type ? icoFor(c.type, W.OTHER[st.side]) : '<div class="ico warn mono" style="text-align:center">?</div>') + '<div class="g"><div class="n">' + (c.type ? esc(U[c.type].n) : 'Unknown ' + (c.size || '') + ' contact') + '</div><div class="s">' + (c.lv === 'old' ? 'last known ' : '') + Math.round((st.t - c.t) / 60) + 'h ago' + (c.str != null ? ' · str ' + c.str + '%' : '') + '</div></div></div>'; });
+  if (!list.length) h += '<div class="dim">Nothing in contact yet.</div>';
+  return h;
+}
+function panelPol() {
+  var st = app.st, side = st.side, P = st.pol[side], h = '', wp = side === 'NATO' ? st.pol.world : 100 - st.pol.world;
+  h += '<div class="card"><div class="kv"><span>' + (side === 'NATO' ? 'Allied cohesion' : 'Satellite loyalty') + '</span><span>' + Math.round(P.coh) + '</span><span>Political capital</span><span>' + P.pc.toFixed(1) + ' / 10</span><span>World opinion (for you)</span><span>' + Math.round(wp) + '</span>' + (st.pol.med > 0 ? '<span>Swiss mediation</span><span>' + Math.ceil(st.pol.med / 60) + 'h left</span>' : '') + '</div></div>';
+  if (P.coh < 35) h += '<div class="note bad">' + (side === 'NATO' ? 'Allies are wavering: nuclear release is blocked until cohesion recovers.' : 'Satellite armies are unreliable.') + '</div>';
+  W.polOptions(st, side).forEach(function (o) { h += '<div class="card' + (o.ok ? '' : ' off') + '" ' + (o.ok ? 'data-a="pol:' + o.id + '"' : '') + '><h3><span>' + esc(o.name) + '</span><span class="mono dim">' + o.cost + ' pc</span></h3><p>' + esc(o.desc) + '</p>' + (o.why ? '<div class="why">' + esc(o.why) + '</div>' : '') + '</div>'; });
+  return h;
+}
+function panelEsc() {
+  var st = app.st, side = st.side, h = '<div class="ladder">';
+  W.ESC_NAMES.forEach(function (n, i) { h += '<div class="' + (i <= st.esc ? 'on ' : '') + (i === 5 ? 'ruin' : '') + '"><b>' + i + '</b>' + esc(n) + '</div>'; });
+  h += '</div><div class="note ' + (st.esc >= 3 ? 'bad' : '') + '">Every strike hurts your home front and alliance, and the other side may answer. Level 5 ends the war in mutual ruin.</div>';
+  W.nukeOptions(st, side).forEach(function (o) { h += '<div class="card' + (o.ok ? '' : ' off') + '" ' + (o.ok ? 'data-a="nuke:' + o.id + '"' : '') + '><h3><span>' + esc(o.name) + '</span><span class="mono nuke">L' + o.lvl + '</span></h3><p>' + esc(o.desc) + '</p>' + (o.why ? '<div class="why">' + esc(o.why) + '</div>' : '') + '</div>'; });
+  return h;
+}
+function panelLog() { return '<div class="lg">' + app.st.log.slice(-60).reverse().map(function (l) { return '<div class="' + l.c + '"><span>' + W.dateStr(l.t).slice(0, 6) + W.dateStr(l.t).slice(-5) + '</span>' + esc(l.m) + '</div>'; }).join('') + '</div>'; }
+var TABS = [['units', 'Units'], ['build', 'Build'], ['manage', 'Manage'], ['intel', 'Intel'], ['pol', 'Politics'], ['esc', 'Escalate'], ['log', 'Log']];
+var PANELS = { units: panelUnits, build: panelBuild, manage: panelManage, intel: panelIntel, pol: panelPol, esc: panelEsc, log: panelLog };
+
+/* ---------- screens ---------- */
+function $(id) { return document.getElementById(id); }
+function fmtTime(ts) { var d = new Date(ts); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); }
+function renderSlots() {
+  var h = '<div class="hero"><h1>Unthinkable <b>\'75</b></h1><p>NATO against the Warsaw Pact on the real map of Europe. Real time. Three campaigns.</p></div><div class="page scroll">';
+  [1, 2, 3].forEach(function (n) {
+    var d = readSlot(n), m = d && d.meta;
+    h += '<div class="slot"><div class="row"><span class="name">SLOT ' + n + '</span>' + (m && m.ended ? '<span class="badge ' + m.ended.outcome + '">' + m.ended.outcome + '</span>' : '<span class="badge">' + (m ? 'in progress' : 'empty') + '</span>') + '</div>';
+    if (m) h += '<div class="meta">' + (m.side === 'NATO' ? 'NATO' : 'Warsaw Pact') + ' · ' + m.diff + ' · day ' + m.day + (m.deploy ? ' · deployment' : '') + ' · escalation ' + m.esc + (m.ended ? '<br><b>' + esc(m.ended.title) + '</b>' : '') + '<br>saved ' + fmtTime(d.saved) + '</div><div class="btns"><button class="pri" data-a="cont:' + n + '">' + (m.ended ? 'View result' : 'Continue') + '</button><button class="dng" data-a="reset:' + n + '">Reset</button></div>';
+    else h += '<div class="btns"><button class="pri" data-a="new:' + n + '">New campaign</button></div>';
+    h += '</div>';
+  });
+  return h + '<div class="slot closecard"><button data-a="close" style="width:100%">Close</button></div></div>';
+}
+function renderSetup() {
+  var s = app.setup, h = '<div class="hero"><h1>New <b>campaign</b></h1><p>Slot ' + app.slot + '</p></div><div class="page scroll"><div class="lbl">Side</div>';
+  h += '<button class="opt ' + (s.side === 'NATO' ? 'sel' : '') + '" data-a="setside:NATO"><b>NATO: strike east</b>Better kit and initiative, outnumbered. Break through from the Fulda Gap before your home front gives out.</button>';
+  h += '<button class="opt ' + (s.side === 'PACT' ? 'sel' : '') + '" data-a="setside:PACT"><b>Warsaw Pact: crush the West</b>Mass and depth. Absorb the first blow, then counter-attack and overrun the Rhine.</button>';
+  h += '<div class="lbl">AI difficulty</div><div class="seg">' + ['easy', 'normal', 'hard'].map(function (d) { return '<button class="' + (s.diff === d ? 'sel' : '') + '" data-a="setdiff:' + d + '">' + d + '</button>'; }).join('') + '</div>';
+  h += '<div class="note">Every campaign starts with a paused deployment phase: move your units and base your aircraft, then press START WAR.</div>';
+  return h + '<div style="display:flex;gap:8px"><button data-a="home" style="flex:1">Back</button><button class="pri" data-a="start" style="flex:2">Start campaign</button></div></div>';
+}
+function renderEnd() {
+  var st = app.st, e = st.ended, o = W.outcomeFor(st), v = W.vpShift(st);
+  return '<div class="hero"><span class="badge ' + o + '">' + (o === 'win' ? 'Victory' : o === 'loss' ? 'Defeat' : 'No winner') + '</span><h1 style="margin-top:10px">' + esc(e.title) + '</h1><p>' + esc(e.text) + '</p></div><div class="page scroll"><div class="card"><div class="kv"><span>Days fought</span><span>' + e.day + '</span><span>NATO ground gained</span><span>' + Math.round(v.NATO * 100) + '%</span><span>Pact ground gained</span><span>' + Math.round(v.PACT * 100) + '%</span><span>NATO units lost</span><span>' + st.stats.lost.NATO + '</span><span>Pact units lost</span><span>' + st.stats.lost.PACT + '</span><span>Nuclear strikes</span><span>' + st.stats.nukes + '</span><span>Highest escalation</span><span>' + W.ESC_NAMES[st.stats.maxEsc] + '</span></div></div><button class="pri" data-a="home" style="width:100%">Back to slots</button></div>';
+}
+function gameSkeleton() {
+  return '<div class="top"><button data-a="menu" aria-label="Menu">☰</button><div class="clock"><b id="clk"></b><span id="sub"></span></div><div id="spd" style="display:flex;gap:4px"></div><button data-a="mini" aria-label="Shrink">▾</button></div>' +
+    '<div class="stage" id="stage"><canvas></canvas><div class="hud" id="hud"></div><div class="toast" id="toast" style="display:none"></div><div id="banner"></div><div class="zoomc"><button data-a="zin">+</button><button data-a="zout">−</button><button data-a="home-view">⌖</button></div></div>' +
+    '<div class="dock h' + app.dock + '" id="dock"><div class="tabs" id="tabs"></div><div class="body" id="body"></div></div>';
+}
+function render() {
+  var root = $('app'), h;
+  if (app.screen === 'slots') h = renderSlots(); else if (app.screen === 'setup') h = renderSetup(); else if (app.screen === 'end') h = renderEnd(); else h = gameSkeleton();
+  root.innerHTML = h; cv = null; ctx = null;
+  if (app.screen === 'game') { setupCanvas($('stage')); bindCanvas(); paintTop(); paintHud(); paintBanner(); renderDock(true); bgDirty = true; }
+  renderModal(); renderMini();
+}
+function renderMini() { var el = $('mini'), st = app.st; el.innerHTML = st ? '<b>D' + W.dayOf(st) + '</b><span>' + st.side + ' · ESC ' + st.esc + '</span><span>' + W.dateStr(st.t).slice(-5) + '</span>' : '<b>U\'75</b><span>tap to open</span>'; }
+function paintTop() {
+  var st = app.st; if (!st || app.screen !== 'game') return; var c = $('clk'); if (!c) return;
+  c.textContent = W.dateStr(st.t).slice(0, 6) + ' ' + W.dateStr(st.t).slice(-5); $('sub').textContent = st.side + ' · day ' + W.dayOf(st) + '/' + W.MAX_DAYS + (st.deploy ? ' · deploy' : '');
+  $('spd').innerHTML = st.deploy ? '<button class="pri" data-a="start">START WAR</button>' : [0, 1, 2, 3, 4].map(function (i) { return '<button data-a="speed:' + i + '" class="' + (app.speed === i ? 'on' : '') + '">' + (['⏸', '▶', '▶▶', '▶▶▶', '⏩'][i]) + '</button>'; }).join('');
+}
+function paintHud() {
+  var st = app.st, h = $('hud'); if (!h || !st) return; var side = st.side, P = st.pol[side], v = W.vpShift(st);
+  h.innerHTML = '<div class="m">PTS <b>' + Math.floor(st.pts[side]) + '</b></div><div class="m">WILL <b>' + Math.round(st.will[side]) + '</b></div><div class="m">COH <b>' + Math.round(P.coh) + '</b></div><div class="m">ESC <b class="' + (st.esc >= 3 ? 'bad' : '') + '">' + st.esc + '</b></div><div class="m">GAIN <b>' + Math.round(v[side] * 100) + '%</b></div>';
+}
+var lastDock = '', lastTabs = '';
+function renderDock(force) {
+  var st = app.st; if (!st || app.screen !== 'game') return; var tb = $('tabs'), bd = $('body'), dk = $('dock'); if (!tb) return;
+  dk.className = 'dock h' + app.dock;
+  var tabs = TABS.map(function (t) { var flag = (t[0] === 'esc' && st.esc >= 3) || (t[0] === 'pol' && st.pol[st.side].coh < 35); return '<button data-a="tab:' + t[0] + '" class="' + (app.tab === t[0] ? 'on' : '') + '">' + t[1] + (flag ? ' <i>!</i>' : '') + '</button>'; }).join('') + '<button class="sz" data-a="dock">' + (app.dock === 2 ? '▾' : '▴') + '</button>';
+  if (tabs !== lastTabs) { tb.innerHTML = tabs; lastTabs = tabs; }
+  if (app.dock === 0) return;
+  var html = PANELS[app.tab](); if (!force && html === lastDock) return;
+  var keep = bd.scrollTop; bd.innerHTML = html; lastDock = html; bd.scrollTop = keep;
+  sizeCanvas();
+}
+function paintBanner() {
+  var b = $('banner'), st = app.st; if (!b || !st) return;
+  if (app.pick) b.innerHTML = '<div class="banner"><span>' + esc(PICKTXT[app.pick.kind] || '') + (app.addStop ? ' <b>(adding stops)</b>' : '') + '</span>' + (app.addStop ? '<button data-a="done">Done</button>' : '') + '<button data-a="cancel">Cancel</button></div>';
+  else if (st.deploy) b.innerHTML = '<div class="banner" style="border-color:var(--good)"><span>Deployment: select a unit, PLACE it, then START WAR.</span><button class="pri" data-a="start">START</button></div>';
+  else b.innerHTML = '';
+}
+function paintToast() { var t = $('toast'); if (!t) return; if (app.toast && Date.now() < app.toastT) { t.style.display = 'block'; t.textContent = app.toast; } else t.style.display = 'none'; }
+function renderModal() {
+  var root = $('modalRoot'); if (!root) { root = document.createElement('div'); root.id = 'modalRoot'; document.body.appendChild(root); }
+  var m = app.modal, st = app.st; if (!m) { root.innerHTML = ''; return; }
+  if (m.type === 'reset') root.innerHTML = '<div class="modal"><div class="sheet"><h2>RESET SLOT ' + m.n + '?</h2><p>This deletes the saved campaign in this slot.</p><div class="btns"><button data-a="cancelm">Keep it</button><button class="dng" data-a="doreset">Reset</button></div></div></div>';
+  else if (m.type === 'nuke') {
+    var op = W.nukeOptions(st, st.side).filter(function (o) { return o.id === m.id; })[0], near = '';
+    var best = ''; M.cities.forEach(function (c) { }); var cn = nearestCity(m.x, m.y);
+    root.innerHTML = '<div class="modal"><div class="sheet"><h2 class="nuke">' + esc(op.name) + '</h2><p>Target: near <b>' + esc(cn) + '</b>, blast radius about ' + m.R + ' km.</p>' + (m.del ? '<p class="good">Launcher: ' + esc(U[m.del.u.type].n) + ' (' + Math.round(m.del.d) + ' km).</p>' : '<p class="bad">No nuclear-capable unit in range of that spot.</p>') + '<p class="warn">The other side will almost certainly answer. Friendly units inside the radius are destroyed too.</p><div class="btns"><button data-a="cancelm">Stand down</button><button class="dng" data-a="donuke"' + (m.del ? '' : ' disabled') + '>Launch</button></div></div></div>';
+  }
+  else if (m.type === 'text') root.innerHTML = '<div class="modal"><div class="sheet"><h2>' + esc(m.title) + '</h2><p>' + m.text + '</p><div class="btns"><button class="pri" data-a="cancelm">OK</button></div></div></div>';
+}
+function nearestCity(x, y) { var b = '', bd = 1e9; M.cities.forEach(function (c) { var d = W.dist(x, y, c[1], c[2]); if (d < bd) { bd = d; b = c[0]; } }); return b; }
+
+/* ---------- actions ---------- */
+function openSlot(n) { var d = readSlot(n); if (!d || !d.state || d.v !== 2) return false; app.slot = n; app.st = d.state; app.sel = []; app.selNode = null; app.selCon = null; app.pick = null; app.speed = 0; app.tab = app.st.deploy ? 'manage' : 'units'; app.screen = app.st.ended ? 'end' : 'game'; var f = W.ll(9.7, 50.5); app.view = { cx: f.x, cy: f.y, z: 0.55 }; return true; }
+function selectGroup(f) { var st = app.st; app.sel = ownUnits().filter(f).map(function (u) { return u.id; }); app.selNode = null; app.selCon = null; app.tab = 'units'; }
+document.addEventListener('click', function (ev) {
+  var t = ev.target.closest('[data-a]'); if (!t) return; var parts = t.getAttribute('data-a').split(':'), a = parts[0], arg = parts.slice(1).join(':'), st = app.st;
+  if (t.tagName !== 'BUTTON' && t.closest('.stage') && a !== 'zin') return;
+  switch (a) {
+    case 'close': if (window.NovaHost && window.NovaHost.close) window.NovaHost.close(); else if (window.U75.onClose) window.U75.onClose(); return;
+    case 'home': saveSlot(); app.screen = 'slots'; app.st = null; break;
+    case 'menu': saveSlot(); app.speed = 0; app.screen = 'slots'; app.st = null; break;
+    case 'new': app.slot = +arg; app.screen = 'setup'; break;
+    case 'setside': app.setup.side = arg; break; case 'setdiff': app.setup.diff = arg; break;
+    case 'start': if (app.screen === 'setup') { app.st = W.newGame({ side: app.setup.side, diff: app.setup.diff }); app.sel = []; app.speed = 0; app.tab = 'manage'; app.screen = 'game'; var f = W.ll(9.7, 50.5); app.view = { cx: f.x, cy: f.y, z: 0.55 }; saveSlot(); }
+      else if (st) { W.startWar(st); app.speed = 1; app.tab = 'units'; saveSlot(); toast('The war begins.'); } break;
+    case 'cont': if (openSlot(+arg)) break; return;
+    case 'reset': app.modal = { type: 'reset', n: +arg }; break;
+    case 'doreset': Store.del(slotKey(app.modal.n)); app.modal = null; break;
+    case 'cancelm': app.modal = null; if (app.pick && app.pick.kind === 'nuke') app.pick.at = null; break;
+    case 'tab': app.tab = arg; if (!app.dock) app.dock = 1; renderDock(true); paintTop(); return;
+    case 'dock': app.dock = (app.dock + 1) % 3; renderDock(true); setTimeout(sizeCanvas, 30); return;
+    case 'speed': if (st && !st.deploy) { app.speed = +arg; paintTop(); renderDock(true); } return;
+    case 'ap': st.set.pause[arg] = !st.set.pause[arg]; renderDock(true); return;
+    case 'layer': app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
+    case 'caph': app.capH = app.capH === 3 ? 6 : app.capH === 6 ? 12 : 3; renderDock(true); return;
+    case 'pick': if (!app.sel.length) { toast('Select a unit first.'); return; } startPick(arg); return;
+    case 'do': if (!app.sel.length) return; issue({ k: arg }); return;
+    case 'stop': app.addStop = !app.addStop; if (app.addStop && !app.pick) toast('Pick a command: each target is added as a further stop.'); renderDock(true); paintBanner(); return;
+    case 'clear': app.sel.forEach(function (id) { var u = W.unitById(st, id); if (u) { u.orders = []; u.path = null; } }); renderDock(true); return;
+    case 'done': endPick(); return; case 'cancel': endPick(); return;
+    case 'multi': app.multi = !app.multi; renderDock(true); return;
+    case 'selu': selectUnit(+arg, false); return;
+    case 'selsame': { var t0 = W.unitById(st, app.sel[0]); if (t0) selectGroup(function (u) { return u.type === t0.type; }); } break;
+    case 'selall': selectGroup(function (u) { var d = U[u.type]; return arg === 'air' ? d.air : arg === 'heli' ? d.heli : d.ground && !d.heli; }); break;
+    case 'selnone': app.sel = []; break;
+    case 'selwings': selectGroup(function (u) { return U[u.type].air && u.state === 'base' && u.base === +arg; }); break;
+    case 'selcon': app.selCon = +arg; app.selNode = null; var c = st.con[st.side][arg]; if (c) centerOn(c.x, c.y); app.tab = 'units'; break;
+    case 'huntsel': issue({ k: 'hunt', cid: app.selCon }); return;
+    case 'strikecon': { var cc = st.con[st.side][app.selCon]; if (cc) issue({ k: 'cas', cid: app.selCon, x: cc.x, y: cc.y }); } return;
+    case 'buyat': app.buyAt = arg === 'none' ? null : { t: arg[0], i: +arg.slice(1) }; app.tab = 'build'; break;
+    case 'buy': { var spot = app.buyAt ? (app.buyAt.t === 'c' ? { city: app.buyAt.i, x: M.cities[app.buyAt.i][1], y: M.cities[app.buyAt.i][2] } : { af: app.buyAt.i, x: M.air[app.buyAt.i][2], y: M.air[app.buyAt.i][3] }) : null; if (spot && U[arg].air && spot.city != null) spot = null; if (spot && !U[arg].air && spot.af != null) spot = null; var r = W.buy(st, st.side, arg, spot); if (!r.ok) toast(r.msg); else toast(U[arg].n + ' ordered.'); } break;
+    case 'unbuy': W.cancelBuy(st, st.side, +arg); break;
+    case 'pol': W.polAct(st, st.side, arg); break;
+    case 'nuke': { var op = W.nukeOptions(st, st.side).filter(function (o) { return o.id === arg; })[0]; if (!op) return; if (op.target) { startPick('nuke', { id: arg, R: op.radius }); toast('Pick the target on the map.'); return; } var rr = W.nukeAct(st, st.side, arg); if (!rr.ok) toast(rr.msg); } break;
+    case 'donuke': { var m = app.modal, r2 = W.nukeAct(st, st.side, m.id, m.x, m.y); app.modal = null; endPick(); toast(r2.ok ? 'Launched.' : r2.msg); } break;
+    case 'cease': { var ok = W.propose(st, st.side); toast(ok ? 'Ceasefire!' : 'No answer: they refuse for now.'); } break;
+    case 'save': saveSlot(); toast('Saved.'); return;
+    case 'zin': app.view.z *= 1.5; clampView(); bgDirty = true; return;
+    case 'zout': app.view.z /= 1.5; clampView(); bgDirty = true; return;
+    case 'home-view': { var f2 = W.ll(9.7, 50.5); centerOn(f2.x, f2.y, 0.55); } return;
+    case 'mini': window.U75.setMini(true); return;
+  }
+  render();
+});
+
+/* ---------- touch / mouse on the map ---------- */
+var ptrs = {}, drag = null;
+function bindCanvas() {
+  if (!cv) return;
+  cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); ptrs[e.pointerId] = { x: e.offsetX, y: e.offsetY, sx: e.offsetX, sy: e.offsetY, t: Date.now() }; drag = { moved: false, cx: app.view.cx, cy: app.view.cy, n: Object.keys(ptrs).length, d0: pinchDist(), z0: app.view.z }; });
+  cv.addEventListener('pointermove', function (e) {
+    var p = ptrs[e.pointerId]; if (!p) return; p.x = e.offsetX; p.y = e.offsetY; var ks = Object.keys(ptrs);
+    if (ks.length >= 2 && drag.d0 > 0) { var dd = pinchDist(); app.view.z = drag.z0 * dd / drag.d0; clampView(); drag.moved = true; bgDirty = true; return; }
+    if (ks.length === 1) { var dx = p.x - p.sx, dy = p.y - p.sy; if (Math.abs(dx) + Math.abs(dy) > 7) drag.moved = true; if (drag.moved) { app.view.cx = drag.cx - dx / app.view.z; app.view.cy = drag.cy - dy / app.view.z; clampView(); } }
+  });
+  function up(e) { var p = ptrs[e.pointerId]; delete ptrs[e.pointerId]; if (p && drag && !drag.moved && Date.now() - p.t < 600 && drag.n === 1) onTap(p.x, p.y); if (!Object.keys(ptrs).length) drag = null; else { drag = { moved: true, cx: app.view.cx, cy: app.view.cy, n: 2, d0: 0, z0: app.view.z }; var q = ptrs[Object.keys(ptrs)[0]]; q.sx = q.x; q.sy = q.y; } }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', function (e) { delete ptrs[e.pointerId]; drag = null; });
+  cv.addEventListener('wheel', function (e) { e.preventDefault(); var wp = s2w(e.offsetX, e.offsetY); app.view.z *= e.deltaY < 0 ? 1.2 : 1 / 1.2; clampView(); var wp2 = s2w(e.offsetX, e.offsetY); app.view.cx += wp.x - wp2.x; app.view.cy += wp.y - wp2.y; bgDirty = true; }, { passive: false });
+}
+function pinchDist() { var k = Object.keys(ptrs); if (k.length < 2) return 0; var a = ptrs[k[0]], b = ptrs[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
+
+/* ---------- the clock ---------- */
+var lastTs = 0, acc = 0, lastSave = Date.now(), lastPanel = 0, lastTop = 0;
+function frame(ts) {
+  requestAnimationFrame(frame);
+  var st = app.st; if (app.screen !== 'game' || !st || app.mini || document.hidden) { lastTs = ts; return; }
+  var dt = Math.min(0.12, (ts - lastTs) / 1000 || 0); lastTs = ts;
+  if (!st.deploy && app.speed > 0 && !st.ended && !app.modal) {
+    acc += SPEEDS[app.speed] * dt; var run = Math.floor(Math.min(acc, 90)); acc -= run; if (acc > 400) acc = 400;
+    if (run >= 1) {
+      var hit = W.advance(st, run), last = null;
+      st.events.forEach(function (e) { if (['city', 'nuke', 'info', 'pol', 'end'].indexOf(e.k) >= 0) last = e; });
+      if (hit) { app.speed = 0; last = hit; if (hit.x && hit.k !== 'end') { var c = w2s(hit.x, hit.y); if (c[0] < 20 || c[0] > cw - 20 || c[1] < 20 || c[1] > ch - 20) centerOn(hit.x, hit.y); } paintTop(); }
+      if (last) toast(last.m);
+      st.events.length = 0;
+      if (st.ended) { saveSlot(); app.screen = 'end'; render(); return; }
+    }
+  } else acc = 0;
+  if (Date.now() - lastSave > 25000) { lastSave = Date.now(); saveSlot(); }
+  if (Date.now() - lastTop > 350) { lastTop = Date.now(); paintTop(); paintHud(); }
+  if (Date.now() - lastPanel > 800) { lastPanel = Date.now(); renderDock(false); renderMini(); }
+  if (app.toast && Date.now() > app.toastT) { app.toast = ''; paintToast(); }
+  draw();
+}
+window.addEventListener('resize', function () { sizeCanvas(); });
+document.addEventListener('visibilitychange', function () { if (document.hidden) saveSlot(); });
+window.addEventListener('pagehide', saveSlot);
+
+/* ---------- host API ---------- */
+window.U75 = { version: '2.0', onClose: null,
+  mini: function () { var st = app.st; return st ? { side: st.side, day: W.dayOf(st), esc: st.esc, ended: !!st.ended } : null; },
+  setMini: function (b) { app.mini = !!b; document.body.classList.toggle('mini', !!b); if (b) { app.speed = 0; saveSlot(); } renderMini(); },
+  expand: function () { if (window.NovaHost && window.NovaHost.expand) window.NovaHost.expand(); window.U75.setMini(false); },
+  open: function (n) { if (openSlot(n)) render(); },
+  _app: function () { return app; }, _w2s: function (x, y) { return w2s(x, y); } };
+
+/* ---------- boot ---------- */
+(function boot() {
+  initGeo();
+  var q = {}; (location.search || '').replace(/^\?/, '').split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) q[p[0]] = decodeURIComponent(p[1] || ''); });
+  if (q.widget === '1') document.body.classList.add('widget'); if (q.full === '1') document.body.classList.add('full');
+  if (q.slot) openSlot(+q.slot);
+  if (q.mini === '1') window.U75.setMini(true);
+  render(); requestAnimationFrame(frame);
+})();
+})();

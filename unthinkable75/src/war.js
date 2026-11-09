@@ -374,7 +374,7 @@ function detect(st) {
       var ox = lv === 'unk' ? ((e.id * 37) % 11 - 5) / 5 * err : 0, oy = lv === 'unk' ? ((e.id * 53) % 11 - 5) / 5 * err : 0;
       con[e.id] = { id: e.id, x: e.x + ox, y: e.y + oy, t: st.t, lv: lv, type: lv === 'id' ? e.type : null, str: lv === 'id' ? Math.round(e.str) : null, size: lv === 'unk' ? (d.cls === 'gnd' ? 'large' : 'small') : null, air: fl, err: err };
       seen[e.id] = 1;
-      if (isNew && side === st.side && st.set.pause.contact && !(c && c.lv === 'unk' && lv === 'unk') && !fl) ev(st, 'contact', (lv === 'id' ? 'Enemy identified: ' + U[e.type].n : 'Unknown contact'), e.x, e.y);
+      if (isNew && side === st.side && st.set.pause.contact && !fl && st.t > START_MIN + 30 && (!st.lastContactEv || st.t - st.lastContactEv > 90) && U[e.type].cls !== 'train' && U[e.type].cls !== 'convoy') { st.lastContactEv = st.t; ev(st, 'contact', (lv === 'id' ? 'Enemy identified: ' + U[e.type].n : 'Unknown contact'), e.x, e.y); }
     });
     for (var k in con) { var cc = con[k]; if (!seen[k]) { var age = st.t - cc.t; if (age > 720 || !unitById(st, +k)) delete con[k]; else if (age > 120) cc.lv = 'old'; } }
   });
