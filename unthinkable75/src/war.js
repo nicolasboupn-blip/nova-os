@@ -487,7 +487,7 @@ function detect(st) {
     var foe = OTHER[side], S = sensorsFor(st, side), con = st.con[side];
     var seen = {};
     st.units.forEach(function (e) {
-      if (e.side !== foe || e.str <= 0 || e.hidden) return;
+      if (e.side !== foe || e.str <= 0 || e.hidden || e.cargoed) return;
       var d = U[e.type], fl = airborne(e), best = 1e9, lv = null;
       for (var i = 0; i < S.length; i++) {
         var s = S[i], dd = dist(s.x, s.y, e.x, e.y);
@@ -608,6 +608,9 @@ function portFor(st, side, hint) {
 }
 function shipAt(st, u, pt) { return !!pt && dist(u.x, u.y, pt.x, pt.y) < 40; }
 function navalStep(st, dt) {
+  // troops whose ship or helicopter is gone are lost with it
+  var carried = {}; st.units.forEach(function (c) { if (c.str > 0 && !c.dead) { if (c.cl) c.cl.forEach(function (id) { carried[id] = 1; }); if (c.cargo != null) carried[c.cargo] = 1; } });
+  st.units.forEach(function (u) { if (u.cargoed && !carried[u.id]) { u.str = 0; u.dead = true; st.stats.lost[u.side]++; } });
   var ships = st.units.filter(function (u) { return U[u.type].naval && u.str > 0; });
   if (!ships.length) return;
   ships.forEach(function (u) { moveShip(st, u, dt); });
@@ -826,7 +829,7 @@ function capture(st, dt) {
   }
   st.cuts = st.cuts.filter(function (c) {
     var eng = 0; st.units.forEach(function (u) { if (U[u.type].cls === 'eng' && dist(u.x, u.y, c.x, c.y) < 20) eng++; });
-    c.until -= dt * (eng ? 3 : 1); return c.until > st.t - st.t + 0 && c.until > 0;
+    c.until -= dt * (eng ? 2 : 0); return c.until > 0;
   });
 }
 function neutralViolation(st, side, name, x, y) {
