@@ -2656,7 +2656,7 @@ function uSimple(su, g) {
   if (g.heli) h += chip('pick:move', '🚁 FLY TO');
   if (g.air) h += chip('pick:land', '🛬 LAND AT');
   if (g.atk || g.nav) h += chip('pick:amove', '⚔ ATTACK');
-  if (g.arty || g.ssm) h += chip('pick:fire', '💥 FIRE') + chip('cease', '⛔ CEASE FIRE');
+  if (g.arty || g.ssm) h += chip('pick:fire', '💥 FIRE') + chip('cfire', '⛔ CEASE FIRE');
   if (g.air || g.heli) h += (g.roles.cas ? chip('pick:cas', '💣 ATTACK') : '') + (g.roles.cap ? chip('pick:cap', '🛡 PATROL') : '') + (g.roles.strike ? chip('pick:strike', '🏭 STRIKE') : '') + (g.roles.recon ? chip('pick:recon', '🔍 RECON') : '') + (g.roles.awacs ? chip('pick:awacs', '📡 AWACS') : '');
   if (g.log) h += chip('pick:haul1', '🚚 HAUL SUPPLIES');
   if (g.gnd && fighter) h += chip('do:dig', '⛏ DIG IN') + chip('do:ambush', '🕶 AMBUSH');
