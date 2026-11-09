@@ -191,7 +191,7 @@ ship('knox', 'NATO', 'Knox-class frigate (ASROC)', 'frigate', 52, { sa: 2, d: 2.
 ship('leander', 'NATO', 'Leander-class frigate (RN / Dutch / German types)', 'frigate', 52, { sa: 2, d: 2.5, asw: 3, aaP: 1.2, shore: 1.5, rng: 20, radarA: 60, cost: 5, eta: 30 });
 ship('type42', 'NATO', 'Type 42 destroyer (Sheffield class)', 'destroyer', 59, { sa: 3, d: 3, asw: 2, aaP: 5.5, shore: 2, rng: 28, radarA: 110, cost: 8, eta: 40, tier: 2, note: 'Lead ship was just entering service.' });
 ship('spruance', 'NATO', 'Spruance-class destroyer', 'destroyer', 59, { sa: 4, d: 3.5, asw: 5, aaP: 3, shore: 3.5, rng: 30, radarA: 110, cost: 10, eta: 48, tier: 3, note: 'Alt-history early: the lead ship was commissioned in September 1975.' });
-ship('tiger', 'NATO', 'Type 148 Tiger-class missile boat (Exocet)', 'corvette', 74, { sa: 5, d: 1.2, rng: 40, radarA: 30, cost: 4, eta: 20 });
+ship('tiger', 'NATO', 'Type 148 Tiger-class missile boat (Exocet)', 'corvette', 74, { sa: 5, d: 1.2, rng: 40, radarA: 30, cost: 4, eta: 20, msl: 4, salvo: 2, mdmg: 24, mname: 'MM38 Exocet' });
 ship('sturgeon', 'NATO', 'Sturgeon-class attack submarine (SSN)', 'sub_attack', 55, { sub: true, sa: 6, d: 3, asw: 3, rng: 20, sight: 15, cost: 12, eta: 72 });
 ship('la688', 'NATO', 'Los Angeles-class attack submarine (SSN-688)', 'sub_attack', 60, { sub: true, sa: 7, d: 3.2, asw: 4, rng: 22, sight: 15, cost: 14, eta: 84, tier: 3, note: 'Alt-history early: USS Los Angeles was commissioned in November 1976.' });
 ship('type206', 'NATO', 'Type 206 coastal submarine (West Germany)', 'sub_diesel', 30, { sub: true, sa: 4, d: 1.8, asw: 1, rng: 12, sight: 12, cost: 6, eta: 48 });
@@ -200,18 +200,18 @@ ship('iwojima', 'NATO', 'Iwo Jima-class assault ship (LPH)', 'amphib', 40, { d: 
 ship('roro', 'NATO', 'RO-RO sealift ship (REFORGER)', 'transport', 33, { d: 1, lift: 3, cost: 6, eta: 24 });
 
 // ---- Pact navy (Baltic and Black Sea fleets, East German and Polish navies)
-ship('kiev', 'PACT', 'Kiev-class carrier (Yak-38)', 'carrier', 59, { d: 5, sa: 4, cvw: { a2g: 4, a2a: 3, rad: 300 }, aaP: 3, radarA: 140, rng: 90, cost: 18, eta: 90, tier: 3, note: 'Alt-history early: Kiev was commissioned in December 1975; the Yak-38 is weak.' });
+ship('kiev', 'PACT', 'Kiev-class carrier (Yak-38)', 'carrier', 59, { d: 5, sa: 4, cvw: { a2g: 4, a2a: 3, rad: 300 }, aaP: 3, radarA: 140, rng: 90, cost: 18, eta: 90, tier: 3, msl: 8, salvo: 4, mdmg: 24, mname: 'SS-N-12 Sandbox', note: 'Alt-history early: Kiev was commissioned in December 1975; the Yak-38 is weak.' });
 ship('moskva', 'PACT', 'Moskva-class helicopter cruiser (ASW)', 'cruiser', 52, { sa: 2, d: 3.5, asw: 5, aaP: 3, shore: 1.5, rng: 25, radarA: 100, cost: 10, eta: 48 });
-ship('kara', 'PACT', 'Kara-class cruiser', 'cruiser', 61, { sa: 4, d: 4, asw: 5, aaP: 5, shore: 3, rng: 40, radarA: 120, cost: 11, eta: 54, tier: 2 });
-ship('kresta', 'PACT', 'Kresta II-class cruiser', 'cruiser', 59, { sa: 4, d: 3.5, asw: 4, aaP: 4, shore: 2.5, rng: 35, radarA: 110, cost: 10, eta: 48 });
+ship('kara', 'PACT', 'Kara-class cruiser', 'cruiser', 61, { sa: 4, msl: 0, d: 4, asw: 5, aaP: 5, shore: 3, rng: 40, radarA: 120, cost: 11, eta: 54, tier: 2 });
+ship('kresta', 'PACT', 'Kresta II-class cruiser', 'cruiser', 59, { sa: 4, d: 3.5, asw: 4, aaP: 4, shore: 2.5, rng: 35, radarA: 110, cost: 10, eta: 48, msl: 4, salvo: 2, mdmg: 22, mname: 'SS-N-3 Shaddock' });
 ship('sverdlov', 'PACT', 'Sverdlov-class cruiser (152 mm guns)', 'cruiser', 59, { sa: 3, d: 4.5, asw: 0.5, aaP: 2, shore: 6, rng: 25, radarA: 70, cost: 8, eta: 40 });
 ship('kashin', 'PACT', 'Kashin-class destroyer', 'destroyer', 61, { sa: 3, d: 3, asw: 3, aaP: 4, shore: 2, rng: 28, radarA: 90, cost: 8, eta: 36 });
 ship('krivak', 'PACT', 'Krivak-class frigate (SS-N-14)', 'frigate', 59, { sa: 3.5, d: 2.5, asw: 4, aaP: 2, shore: 1.5, rng: 25, radarA: 70, cost: 6, eta: 32 });
 ship('riga', 'PACT', 'Riga-class frigate', 'frigate', 52, { sa: 1.5, d: 2, asw: 1.5, aaP: 1, shore: 1.5, rng: 18, radarA: 45, cost: 3, eta: 20 });
-ship('nanuchka', 'PACT', 'Nanuchka-class missile corvette (SS-N-9)', 'corvette', 61, { sa: 7, d: 1.5, rng: 110, radarA: 60, cost: 6, eta: 28, tier: 2 });
-ship('osa', 'PACT', 'Osa-class missile boat (SS-N-2 Styx)', 'corvette', 74, { sa: 5, d: 1, rng: 45, radarA: 30, cost: 3, eta: 16 });
+ship('nanuchka', 'PACT', 'Nanuchka-class missile corvette (SS-N-9)', 'corvette', 61, { sa: 7, d: 1.5, rng: 110, radarA: 60, cost: 6, eta: 28, tier: 2, msl: 6, salvo: 3, mdmg: 26, mname: 'SS-N-9 Siren' });
+ship('osa', 'PACT', 'Osa-class missile boat (SS-N-2 Styx)', 'corvette', 74, { sa: 5, d: 1, rng: 45, radarA: 30, cost: 3, eta: 16, msl: 4, salvo: 2, mdmg: 22, mname: 'SS-N-2 Styx' });
 ship('foxtrot', 'PACT', 'Foxtrot-class submarine', 'sub_diesel', 30, { sub: true, sa: 4, d: 2, asw: 1, rng: 15, sight: 12, cost: 5, eta: 40 });
-ship('charlie', 'PACT', 'Charlie-class SSGN (anti-ship missiles)', 'sub_attack', 50, { sub: true, sa: 7, d: 2.5, asw: 1.5, rng: 55, sight: 14, cost: 12, eta: 72, tier: 2 });
+ship('charlie', 'PACT', 'Charlie-class SSGN (anti-ship missiles)', 'sub_attack', 50, { sub: true, sa: 7, d: 2.5, asw: 1.5, rng: 55, sight: 14, cost: 12, eta: 72, tier: 2, msl: 8, salvo: 4, mdmg: 26, mname: 'SS-N-7 Siren' });
 ship('victor', 'PACT', 'Victor-class attack submarine (SSN)', 'sub_attack', 61, { sub: true, sa: 6, d: 3, asw: 4, rng: 20, sight: 15, cost: 12, eta: 72, tier: 2 });
 ship('alligator', 'PACT', 'Alligator-class landing ship', 'amphib', 33, { d: 2.5, lift: 2, aaP: 0.5, radarA: 30, cost: 7, eta: 36 });
 ship('ropucha', 'PACT', 'Ropucha-class landing ship', 'amphib', 40, { d: 3, lift: 3, aaP: 1, radarA: 40, cost: 9, eta: 44, tier: 2 });
@@ -284,7 +284,7 @@ function mkUnit(st, type, side, x, y) {
   var d = U[type], u = { id: st.nid++, type: type, side: side, x: x, y: y, str: 100, sup: 100, mor: 80, orders: [], path: null, dig: 0, bt: 0, hold: 0, kills: 0, hist: [], trk: [], dist: 0 };
   if (d.air) { u.base = null; u.state = 'base'; u.rdy = 0; u.fuel = d.rad * 2; u.alt = 0; }
   if (d.heli) { u.state = 'land'; u.fuel = d.rad * 2; u.cargo = null; }
-  if (d.naval) { u.state = 'sea'; u.cl = []; u.cvRdy = 0; }
+  if (d.naval) { u.state = 'sea'; u.cl = []; u.cvRdy = 0; if (d.msl) u.msl = d.msl; }
   if (d.cls === 'train' || d.cls === 'convoy') u.load = 0;
   return u;
 }
@@ -729,23 +729,50 @@ function moveShip(st, u, dt) {
   if (!u.path) { u.path = findPath('n', u.x, u.y, o.x, o.y); if (!u.path) { u.orders.shift(); ev(st, 'idle', d.n + ': no sea route.', u.x, u.y); return; } }
   if (shipFollow(st, u, d, dt)) { u.orders.shift(); u.path = null; if (!u.orders.length && u.side === st.side) ev(st, 'idle', d.n + ' has arrived.', u.x, u.y); }
 }
+function fireMissiles(st, a, b) {
+  var da = U[a.type], db = U[b.type], n = Math.min(Math.floor(a.msl), da.salvo || 2), hits = 0;
+  a.msl -= n; a.mslT = st.t + 14; a.bt = 60; if (da.sub) a.reveal = st.t + 40;
+  var pk = 0.8 / (1 + 0.22 * (db.aaP || 0));
+  for (var i = 0; i < n; i++) {
+    var hit = rnd(st) < pk; if (hit) hits++;
+    st.fx.push({ k: 'shell', x0: a.x, y0: a.y, x1: b.x + rr(st, -1, 1), y1: b.y + rr(st, -1, 1), t: st.t, s: a.side, m: 1 });
+  }
+  var dm = hits * (da.mdmg || 22) * (a.mor > 30 ? 1 : 0.6) / (1 + 0.12 * (db.d - 3 > 0 ? db.d - 3 : 0));
+  b.str -= dm; b.mor -= dm * 0.5; b.bt = 60;
+  var msg = da.n.split(' (')[0] + ' fired ' + n + ' ' + (da.mname || 'missiles') + ' at ' + db.n.split(' (')[0] + ': ' + hits + ' hit' + (hits === 1 ? '' : 's') + ' (' + Math.floor(a.msl) + ' left).';
+  uhist(st, a, 'Fired ' + n + ' ' + (da.mname || 'missiles') + ' (' + hits + ' hits, ' + Math.floor(a.msl) + ' left).');
+  if (b.side === st.side) { logm(st, msg, 'bad'); if (st.set.pause.battle) ev(st, 'battle', db.n + ' hit by missiles', b.x, b.y); } else if (a.side === st.side) logm(st, msg, hits ? 'good' : '');
+  if (b.str <= 5) { killUnit(st, b, a.side); if (a.side === st.side) logm(st, db.n + ' sunk by missiles.', 'good'); else logm(st, da.n + ' sank ' + db.n + '.', 'bad'); }
+}
 function navalCombat(st, dt, ships) {
   var K = 14, hr = dt / 60, con;
   ships.forEach(function (a) {
     if (a.str <= 0) return; var da = U[a.type];
     con = st.con[a.side];
     // ---- against ships
-    if (da.sa > 0) {
+    if (da.msl) {
+      if (a.msl < da.msl && ownCityNear(st, a.side, a.x, a.y, 15) && !(a.bt > 0)) a.msl = Math.min(da.msl, a.msl + 0.5 * dt / 60);
+      if (a.msl >= 1 && !(a.mslT > st.t)) {
+        var mt = null, md = 1e9;
+        ships.forEach(function (b) {
+          if (b.side === a.side || b.str <= 0 || U[b.type].sub) return; var dd = dist(a.x, a.y, b.x, b.y);
+          var c0 = con[b.id]; if (dd > da.rng || dd >= md || !(c0 && c0.lv === 'id')) return; md = dd; mt = b;
+        });
+        if (mt) fireMissiles(st, a, mt);
+      }
+    }
+    var sa = da.msl ? (a.msl >= 1 ? 0 : da.sa * 0.25) : da.sa, rngS = (da.msl && a.msl < 1) ? Math.min(da.rng, 12) : da.rng;
+    if (sa > 0) {
       var best = null, bd = 1e9;
       ships.forEach(function (b) {
         if (b.side === a.side || b.str <= 0) return; var db = U[b.type], dd = dist(a.x, a.y, b.x, b.y);
-        if (dd > da.rng || dd >= bd) return;
+        if (dd > rngS || dd >= bd) return;
         if (db.sub) { var can = da.sub ? dd <= 10 : (da.asw > 0 && dd <= da.asw * 6); if (!can && !(st.t < (b.reveal || 0) && dd <= 20)) return; }
         else { var c = con[b.id]; if (!(c && c.lv === 'id') && dd > 15) return; }
         bd = dd; best = b;
       });
       if (best) {
-        var db2 = U[best.type], pw = best.sub ? (da.sub ? da.sa * 0.7 : da.asw * 1.1) : da.sa;
+        var db2 = U[best.type], pw = best.sub ? (da.sub ? da.sa * 0.7 : da.asw * 1.1) : sa;
         var dm = pw * (a.str / 100) * supF(a) * morF(a) * hr * K / (db2.d + 1.5) * rr(st, 0.7, 1.3);
         if (da.sub) a.reveal = st.t + 40;
         best.str -= dm; best.mor -= dm * 0.3; a.bt = 60; best.bt = 60; a.sup = Math.max(0, a.sup - 0.25 * hr);
