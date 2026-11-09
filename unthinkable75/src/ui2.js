@@ -82,6 +82,7 @@ function symOf(type) {
   var d = U[type];
   if (d.air) return d.cls === 'awacs' ? 'R' : d.cls === 'tanker' ? 'K' : 'A';
   if (d.heli) return d.cls === 'heli_trans' ? 'HT' : 'H';
+  if (d.naval) return d.cls === 'carrier' ? 'sCV' : d.sub ? 'sSM' : (d.cls === 'amphib' || d.cls === 'transport') ? 'sLT' : 'sSH';
   var m = { gnd: type === 'armor' || type === 'tank' || type === 'gtank' ? 'T' : type === 'inf' || type === 'vdv' ? 'X' : 'M', recon: 'V', arty: 'a', aa: 'n', eng: 'E', train: 'R', convoy: 'C', ssm: 'S' };
   return m[d.cls] || '?';
 }
@@ -95,6 +96,10 @@ function drawSym(c, s, x, y, col) {
   else if (s === 'a') { c.arc(x, y, 2.4, 0, 7); c.fill(); }
   else if (s === 'n') { c.arc(x, y + 3, 5, Math.PI, 0); c.stroke(); }
   else if (s === 'S') { c.moveTo(x, y - 4); c.lineTo(x + 4, y + 3); c.lineTo(x - 4, y + 3); c.closePath(); c.fill(); }
+  else if (s === 'sSH') { c.moveTo(x - 8, y - 1); c.lineTo(x + 8, y - 1); c.lineTo(x + 5, y + 4); c.lineTo(x - 6, y + 4); c.closePath(); c.fill(); c.fillRect(x - 3, y - 5, 5, 4); }
+  else if (s === 'sCV') { c.moveTo(x - 9, y - 1); c.lineTo(x + 9, y - 1); c.lineTo(x + 6, y + 4); c.lineTo(x - 7, y + 4); c.closePath(); c.fill(); c.fillRect(x + 2, y - 5, 3, 4); }
+  else if (s === 'sSM') { c.ellipse(x, y + 1, 8, 2.8, 0, 0, 7); c.fill(); c.fillRect(x - 2, y - 4, 4, 4); }
+  else if (s === 'sLT') { c.moveTo(x - 8, y - 1); c.lineTo(x + 8, y - 1); c.lineTo(x + 6, y + 4); c.lineTo(x - 6, y + 4); c.closePath(); c.stroke(); c.strokeRect(x - 4, y - 5, 8, 4); }
   else if (s === 'A') { c.moveTo(x, y - 5); c.lineTo(x + 2, y); c.lineTo(x + 6, y + 2); c.lineTo(x + 2, y + 2); c.lineTo(x + 1, y + 5); c.lineTo(x - 1, y + 5); c.lineTo(x - 2, y + 2); c.lineTo(x - 6, y + 2); c.lineTo(x - 2, y); c.closePath(); c.fill(); }
   else { c.font = 'bold 9px ui-monospace,monospace'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, x, y + 0.5); }
 }
@@ -129,7 +134,7 @@ function orderPts(u) {
   });
   return pts;
 }
-var KCOL = { move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
+var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
 function draw() {
   var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
@@ -221,7 +226,7 @@ function pickAt(sx, sy) {
 /* ---------- order picking ---------- */
 var PICKTXT = { move: 'Tap the map: where should it go?', amove: 'Tap the map: attack-move there (fights anything on the way).', hunt: 'Tap an enemy contact (identified or ?) to hunt it down.', cas: 'Tap an enemy contact or a spot for the ground attack.',
   strike: 'Tap an enemy city or airfield to bomb, or any spot.', cut: 'Tap a railway line to cut it with a strike.', recon: 'Tap the map: recon flight to there.', cap: 'Tap the map: combat air patrol over there.', awacs: 'Tap the map: AWACS station.',
-  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', nuke: 'Tap the target for the strike.' };
+  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', bombard: 'Tap the enemy position to shell (the ship sails to within gun range).', sealift1: 'Tap the ground unit to load (near the coast).', sealift2: 'Tap the landing spot on the coast.', nuke: 'Tap the target for the strike.' };
 function startPick(kind, extra) { app.pick = { kind: kind }; if (extra) for (var k in extra) app.pick[k] = extra[k]; paintBanner(); }
 function endPick() { app.pick = null; app.addStop = false; paintBanner(); renderDock(true); }
 function issue(cmd) {
@@ -234,8 +239,11 @@ function handlePick(sx, sy) {
   var ok = false;
   if (k === 'move' || k === 'amove') {
     if (st.deploy) { var any = false; app.sel.forEach(function (id) { if (W.deployMove(st, id, w.x, w.y)) any = true; }); if (!any) toast('Place units on your own territory (aircraft: use BASE AT).'); else ok = true; }
-    else { if (!W.isLand(w.x, w.y) && !app.sel.some(function (id) { var u = W.unitById(st, id); return u && W.isHeli(u); })) { toast('That is water.'); return; } ok = issue({ k: k, x: w.x, y: w.y }); }
+    else { if (!W.isLand(w.x, w.y) && !app.sel.some(function (id) { var u = W.unitById(st, id); return u && (W.isHeli(u) || U[u.type].naval); })) { toast('That is water.'); return; } ok = issue({ k: k, x: w.x, y: w.y }); }
   } else if (k === 'hunt') { var c = first('k'); if (!c) { toast('No contact there.'); return; } ok = issue({ k: 'hunt', cid: c.id }); }
+  else if (k === 'bombard') ok = issue({ k: 'bombard', x: w.x, y: w.y });
+  else if (k === 'sealift1') { var u2 = first('u'); var su2 = u2 && W.unitById(st, u2.id); if (!su2 || !U[su2.type].ground || U[su2.type].heli || U[su2.type].naval || U[su2.type].cls === 'train') { toast('Tap one of your ground units near the coast.'); return; } p.uid = su2.id; p.kind = 'sealift2'; paintBanner(); return; }
+  else if (k === 'sealift2') ok = issue({ k: 'lift', uid: p.uid, x: w.x, y: w.y });
   else if (k === 'cas') { var c2 = first('k'); ok = issue(c2 ? { k: 'cas', cid: c2.id, x: st.con[st.side][c2.id].x, y: st.con[st.side][c2.id].y } : { k: 'cas', x: w.x, y: w.y }); }
   else if (k === 'strike') {
     var cc = first('c'), aa = first('a'), foe = W.OTHER[st.side];
@@ -278,7 +286,7 @@ function onTap(sx, sy) {
 
 /* ---------- panels ---------- */
 function icoFor(type, side) {
-  var d = U[type], k = d.air ? (d.cls === 'awacs' ? 'awacs' : d.cls === 'tanker' ? 'tanker' : 'jet') : d.heli ? 'heli' : ({ gnd: (type === 'armor' || type === 'tank' || type === 'gtank') ? 'tank' : (type === 'inf' || type === 'vdv') ? 'apc' : 'ifv', recon: 'ifv', arty: 'arty', aa: 'spaa', eng: 'eng', train: 'train', convoy: 'truck', ssm: 'missile' })[d.cls] || 'tank';
+  var d = U[type], k = d.air ? (d.cls === 'awacs' ? 'awacs' : d.cls === 'tanker' ? 'tanker' : 'jet') : d.heli ? 'heli' : ({ gnd: (type === 'armor' || type === 'tank' || type === 'gtank') ? 'tank' : (type === 'inf' || type === 'vdv') ? 'apc' : 'ifv', recon: 'ifv', arty: 'arty', aa: 'spaa', eng: 'eng', train: 'train', convoy: 'truck', ssm: 'missile', carrier: 'carrier', amphib: 'lst', transport: 'lst', sub_attack: 'sub', sub_diesel: 'sub', cruiser: 'ship', destroyer: 'ship', frigate: 'ship', corvette: 'ship' })[d.cls] || 'tank';
   return '<svg class="ico ' + side + '" viewBox="0 0 48 28"><use href="#i-' + k + '"/></svg>';
 }
 function bar(v, c) { return '<div class="bar ' + (c || '') + '"><i style="width:' + clamp(v, 0, 100) + '%"></i></div>'; }
@@ -286,18 +294,22 @@ function orderText(u) {
   var o = u.orders && u.orders[0], st = app.st; if (U[u.type].air && u.state === 'base') return o ? 'ready: ' + o.k : 'on the ground';
   if (u.broken) return 'broken, falling back'; if (!o) return U[u.type].air || U[u.type].heli ? (u.state === 'fly' ? 'returning' : 'landed') : (u.dig >= 1 ? 'dug in' : u.dig > 0 ? 'digging in' : 'idle');
   var n = u.orders.length > 1 ? ' +' + (u.orders.length - 1) : '';
-  var m = { move: 'moving', amove: 'attack-move', hunt: 'hunting', hold: 'holding', dig: 'digging in', wait: 'waiting', haul: 'hauling', cas: 'ground attack', strike: 'strike', recon: 'recon', cap: 'patrol', awacs: 'AWACS', rtb: 'returning', land: 'landing', lift: 'air assault' };
+  var m = { move: 'moving', amove: 'attack-move', hunt: 'hunting', hold: 'holding', dig: 'digging in', wait: 'waiting', haul: 'hauling', cas: 'ground attack', strike: 'strike', recon: 'recon', cap: 'patrol', awacs: 'AWACS', rtb: 'returning', land: 'landing', lift: 'air assault', bombard: 'shelling', airstrike: 'air strike' };
   return (m[o.k] || o.k) + n;
 }
 function chip(a, label, extra, on) { return '<button data-a="' + a + '"' + (on ? ' class="on"' : '') + (extra ? ' ' + extra : '') + '>' + label + '</button>'; }
 function cmdChips(su) {
   var st = app.st, h = '', anyG = su.some(function (u) { var d = U[u.type]; return d.ground && !d.heli && d.cls !== 'train'; }), anyT = su.some(function (u) { return ['train', 'convoy'].indexOf(U[u.type].cls) >= 0; }),
-    anyA = su.some(function (u) { return U[u.type].air; }), anyH = su.some(function (u) { return U[u.type].heli; }), roles = {};
+    anyN = su.some(function (u) { return U[u.type].naval; }), anyA = su.some(function (u) { return U[u.type].air; }), anyH = su.some(function (u) { return U[u.type].heli; }), roles = {};
   su.forEach(function (u) { (U[u.type].roles || []).forEach(function (r) { roles[r] = 1; }); if (U[u.type].heli && U[u.type].a2g) roles.cas = 1; });
   var anyAtk = su.some(function (u) { return U[u.type].a > 0 && U[u.type].ground && !U[u.type].heli; });
-  if (st.deploy) { h += '<div class="chips">' + (anyG || anyT || anyH ? chip('pick:move', 'PLACE') : '') + (anyA ? chip('pick:land', 'BASE AT') : '') + '</div>'; return h; }
+  if (st.deploy) { h += '<div class="chips">' + (anyG || anyT || anyH || anyN ? chip('pick:move', 'PLACE') : '') + (anyA ? chip('pick:land', 'BASE AT') : '') + '</div>'; return h; }
   h += '<div class="chips">';
   if (anyG || anyT) h += chip('pick:move', 'MOVE');
+  if (anyN) {
+    var nv = su.filter(function (u) { return U[u.type].naval; }).map(function (u) { return U[u.type]; });
+    h += chip('pick:move', 'SAIL TO') + (nv.some(function (d) { return d.sa > 0; }) ? chip('pick:amove', 'PATROL-ATTACK') + chip('pick:hunt', 'HUNT SHIP') : '') + (nv.some(function (d) { return d.shore > 0; }) ? chip('pick:bombard', 'BOMBARD') : '') + (nv.some(function (d) { return d.cvw; }) ? chip('pick:strike', 'CARRIER STRIKE') + chip('pick:cas', 'CARRIER GROUND ATTACK') : '') + (nv.some(function (d) { return d.lift; }) ? chip('pick:sealift1', 'SEALIFT TROOPS') : '') + chip('do:hold', 'HOLD');
+  }
   if (anyAtk) h += chip('pick:amove', 'ATTACK-MOVE') + chip('pick:hunt', 'HUNT');
   if (anyG) h += chip('do:dig', 'DIG IN') + chip('do:hold', 'HOLD');
   if (anyT) h += chip('pick:haul1', 'HAUL SUPPLIES');
@@ -334,7 +346,7 @@ function panelUnits() {
   app.sel = su.map(function (u) { return u.id; });
   if (app.pick) h += '<div class="note">' + esc(PICKTXT[app.pick.kind] || '') + '</div>';
   if (!su.length && !app.selNode && app.selCon == null) {
-    h += '<div class="note">Tap one of your units, an airfield or a city on the map. Drag to pan, pinch to zoom.</div><div class="chips">' + chip('selall:ground', 'SELECT ALL GROUND') + chip('selall:air', 'SELECT ALL AIR') + chip('selall:heli', 'ALL HELICOPTERS') + '</div>';
+    h += '<div class="note">Tap one of your units, an airfield or a city on the map. Drag to pan, pinch to zoom.</div><div class="chips">' + chip('selall:ground', 'SELECT ALL GROUND') + chip('selall:air', 'SELECT ALL AIR') + chip('selall:heli', 'ALL HELICOPTERS') + chip('selall:naval', 'ALL SHIPS') + '</div>';
     return h;
   }
   if (su.length) {
@@ -356,7 +368,7 @@ function panelBuild() {
   var q = st.queue.filter(function (x) { return x.side === side; });
   if (q.length) h += '<div class="lbl">In production</div><div class="card">' + q.map(function (x, i) { return '<div class="urow">' + icoFor(x.type, side) + '<div class="g"><div class="n">' + esc(U[x.type].n) + '</div><div class="s">arrives in ' + Math.ceil(x.eta / 60) + 'h</div></div>' + (x.eta > U[x.type].eta * 60 - 20 ? chip('unbuy:' + st.queue.indexOf(x), 'undo') : '') + '</div>'; }).join('') + '</div>';
   h += '<div class="lbl">Available</div><div class="card">' + W.unitsFor(side, t).sort(function (a, b) { return U[a].tier - U[b].tier || U[a].cost - U[b].cost; }).map(function (k) {
-    var d = U[k]; return '<div class="urow">' + icoFor(k, side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">cost ' + d.cost + ' · ' + d.eta + 'h' + (d.air ? ' · air' : d.heli ? ' · heli' : '') + (d.nuke ? ' · nuclear-capable' : '') + '</div>' + (d.note ? '<div class="s">' + esc(d.note) + '</div>' : '') + '</div>' + '<button data-a="buy:' + k + '"' + (st.pts[side] >= d.cost ? '' : ' disabled') + '>+</button></div>';
+    var d = U[k]; return '<div class="urow">' + icoFor(k, side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">cost ' + d.cost + ' · ' + d.eta + 'h' + (d.air ? ' · air' : d.heli ? ' · heli' : d.naval ? ' · naval' : '') + (d.nuke ? ' · nuclear-capable' : '') + '</div>' + (d.note ? '<div class="s">' + esc(d.note) + '</div>' : '') + '</div>' + '<button data-a="buy:' + k + '"' + (st.pts[side] >= d.cost ? '' : ' disabled') + '>+</button></div>';
   }).join('') + '</div>';
   if (t < 3) h += '<div class="note">Tier ' + (t + 1) + ' unlocks: ' + W.unitsFor(side, 3).filter(function (k) { return U[k].tier === t + 1; }).map(function (k) { return esc(U[k].n); }).join(', ') + '.</div>';
   return h;
@@ -512,7 +524,7 @@ document.addEventListener('click', function (ev) {
     case 'multi': app.multi = !app.multi; renderDock(true); return;
     case 'selu': selectUnit(+arg, false); return;
     case 'selsame': { var t0 = W.unitById(st, app.sel[0]); if (t0) selectGroup(function (u) { return u.type === t0.type; }); } break;
-    case 'selall': selectGroup(function (u) { var d = U[u.type]; return arg === 'air' ? d.air : arg === 'heli' ? d.heli : d.ground && !d.heli; }); break;
+    case 'selall': selectGroup(function (u) { var d = U[u.type]; return arg === 'air' ? d.air : arg === 'heli' ? d.heli : arg === 'naval' ? d.naval : d.ground && !d.heli; }); break;
     case 'selnone': app.sel = []; break;
     case 'selwings': selectGroup(function (u) { return U[u.type].air && u.state === 'base' && u.base === +arg; }); break;
     case 'selcon': app.selCon = +arg; app.selNode = null; var c = st.con[st.side][arg]; if (c) centerOn(c.x, c.y); app.tab = 'units'; break;
