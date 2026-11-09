@@ -551,8 +551,8 @@ function uAtk(su, g) {
   if (app.selCon != null && st.con[st.side][app.selCon]) h += conInfo();
   h += '<div class="lbl">Ground and sea</div><div class="chips">';
   if (g.atk || g.nav) h += (g.atk || nvA ? chip('pick:amove', '⚔ ATTACK-MOVE') + chip('pick:hunt', '🎯 HUNT A CONTACT') : '');
-  if (g.arty) h += chip('pick:fire', '💥 ARTILLERY BARRAGE') + chip('firem', app.fireM ? '⏱ ' + app.fireM + ' min' : '⏱ ∞ UNTIL STOPPED') + chip('cease', '⛔ CEASE FIRE');
-  if (g.ssm) h += chip('pick:fire', '🚀 CONVENTIONAL MISSILE STRIKE') + chip('firem', app.fireM ? '⏱ ' + app.fireM + ' min' : '⏱ ∞ UNTIL STOPPED') + chip('cease', '⛔ CEASE FIRE');
+  if (g.arty) h += chip('pick:fire', '💥 ARTILLERY BARRAGE') + chip('firem', app.fireM ? '⏱ ' + app.fireM + ' min' : '⏱ ∞ UNTIL STOPPED') + chip('cfire', '⛔ CEASE FIRE');
+  if (g.ssm) h += chip('pick:fire', '🚀 CONVENTIONAL MISSILE STRIKE') + chip('firem', app.fireM ? '⏱ ' + app.fireM + ' min' : '⏱ ∞ UNTIL STOPPED') + chip('cfire', '⛔ CEASE FIRE');
   if (g.nv.some(function (d) { return d.shore > 0; })) h += chip('pick:bombard', '🚢 SHELL THE COAST');
   if (!(g.atk || g.nav || g.arty || g.ssm)) h += '<span class="dim">This selection has no ground attack.</span>';
   h += '</div>';
@@ -699,9 +699,32 @@ function panelEsc() {
   W.nukeOptions(st, side).forEach(function (o) { h += '<div class="card' + (o.ok ? '' : ' off') + '" ' + (o.ok ? 'data-a="nuke:' + o.id + '"' : '') + '><h3><span>' + esc(o.name) + '</span><span class="mono nuke">L' + o.lvl + '</span></h3><p>' + esc(o.desc) + '</p>' + (o.why ? '<div class="why">' + esc(o.why) + '</div>' : '') + '</div>'; });
   return h;
 }
+var MODES = { fire: ['Direct fire', '% per hour'], barrage: ['Barrage', '% per hour'], missile: ['Missile strike', '% per missile'], loiter: ['Circle & attack', '% per hour'], salvo: ['Missile salvo', '% per salvo'] };
+function statUnits(side) { var E = W.getEra(); return Object.keys(U).filter(function (k) { return U[k].side === side && (U[k].era === E || U[k].era === 'b'); }).sort(function (a, b) { return (clsName(U[a]) + U[a].n).localeCompare(clsName(U[b]) + U[b].n); }); }
+function clsName(d) { return d.naval ? (d.sub ? 'Submarine' : 'Ship') : d.air ? 'Aircraft' : d.heli ? 'Helicopter' : ({ gnd: 'Combat', arty: 'Artillery', ssm: 'Missiles', aa: 'Air defence', recon: 'Recon', eng: 'Engineers', train: 'Supply train', convoy: 'Supply convoy' }[d.cls] || d.cls); }
+function panelStats() {
+  var side = app.statSide || app.st.side, foe = W.OTHER[side], h = '<div class="hint">Expected damage to the target as % of its strength. Full-strength attacker, full supply, open ground, target not dug in. Damage drops if the target digs in or sits in a city.</div><div class="chips">' + chip('statside:' + app.st.side, 'YOUR UNITS', '', side === app.st.side) + chip('statside:' + W.OTHER[app.st.side], 'ENEMY UNITS', '', side !== app.st.side) + '</div>';
+  var open = app.statOpen, lastC = '';
+  statUnits(side).forEach(function (k) {
+    var d = U[k], isOpen = open === k, cn = clsName(d);
+    if (cn !== lastC) { lastC = cn; h += '<div class="lbl">' + esc(cn) + '</div>'; }
+    h += '<div class="srow' + (isOpen ? ' on' : '') + '" data-a="statopen:' + k + '"><div class="n">' + esc(d.n) + '</div><div class="s">' + (d.a != null ? 'ATK ' + d.a + ' · ' : '') + (d.d != null && !d.air ? 'DEF ' + d.d + ' · ' : '') + (d.a2a != null ? 'A2A ' + d.a2a + ' · A2G ' + d.a2g + ' · ' : '') + (d.sight ? 'SIGHT ' + d.sight + ' km · ' : '') + (d.rng ? 'RNG ' + d.rng + ' km · ' : '') + 'COST ' + d.cost + '</div></div>';
+    if (!isOpen) return;
+    var foes = Object.keys(U).filter(function (t) { return U[t].side === foe && (U[t].era === W.getEra() || U[t].era === 'b'); }), any = false;
+    ['fire', 'barrage', 'missile', 'loiter', 'salvo'].forEach(function (m) {
+      var rows = foes.map(function (t) { var r = W.dmgInfo(k, t); return r[m] != null ? [t, r[m]] : null; }).filter(Boolean).sort(function (a, b) { return b[1] - a[1]; });
+      if (!rows.length) return; any = true; var mx = rows[0][1];
+      h += '<div class="sdet"><b>' + MODES[m][0] + '</b> <span>' + MODES[m][1] + '</span>' + rows.map(function (r) { return '<div class="dr"><span class="t">' + esc(U[r[0]].n) + '</span><i style="width:' + Math.max(3, r[1] / mx * 100) + '%"></i><span class="v">' + r[1].toFixed(1) + '</span></div>'; }).join('') + '</div>';
+    });
+    if (!any) h += '<div class="sdet"><span>This unit does not deal damage by itself.</span></div>';
+    var dealers = foes.map(function (t) { var r = W.dmgInfo(t, k), v = Math.max(r.fire || 0, r.barrage || 0, r.missile || 0, r.loiter || 0, r.salvo || 0); return v > 0 ? [t, v] : null; }).filter(Boolean).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
+    if (dealers.length) h += '<div class="sdet"><b>Hurt most by</b> <span>best mode, % per hour or per shot</span>' + dealers.map(function (r) { return '<div class="dr"><span class="t">' + esc(U[r[0]].n) + '</span><i class="x" style="width:' + Math.max(3, r[1] / dealers[0][1] * 100) + '%"></i><span class="v">' + r[1].toFixed(1) + '</span></div>'; }).join('') + '</div>';
+  });
+  return h;
+}
 function panelLog() { return '<div class="lg">' + app.st.log.slice(-60).reverse().map(function (l) { return '<div class="' + l.c + '"><span>' + W.dateStr(l.t).slice(0, 6) + W.dateStr(l.t).slice(-5) + '</span>' + esc(l.m) + '</div>'; }).join('') + '</div>'; }
-var TABS = [['units', 'Units'], ['move', 'Movement'], ['build', 'Build'], ['manage', 'Manage'], ['intel', 'Intel'], ['pol', 'Politics'], ['esc', 'Escalate'], ['log', 'Log']];
-var PANELS = { move: panelMove, units: panelUnits, build: panelBuild, manage: panelManage, intel: panelIntel, pol: panelPol, esc: panelEsc, log: panelLog };
+var TABS = [['units', 'Units'], ['move', 'Movement'], ['build', 'Build'], ['manage', 'Manage'], ['intel', 'Intel'], ['pol', 'Politics'], ['esc', 'Escalate'], ['stats', 'Stats'], ['log', 'Log']];
+var PANELS = { move: panelMove, units: panelUnits, build: panelBuild, manage: panelManage, intel: panelIntel, pol: panelPol, esc: panelEsc, stats: panelStats, log: panelLog };
 
 /* ---------- screens ---------- */
 function $(id) { return document.getElementById(id); }
@@ -810,7 +833,9 @@ document.addEventListener('click', function (ev) {
     case 'layer': app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
     case 'utab': app.utab = arg; renderDock(true); return;
     case 'simple': app.simple = arg === '1'; renderDock(true); return;
-    case 'cease': issue({ k: 'hold' }); renderDock(true); return;
+    case 'statside': app.statSide = arg; app.statOpen = null; renderDock(true); return;
+    case 'statopen': app.statOpen = app.statOpen === arg ? null : arg; renderDock(true); return;
+    case 'cfire': issue({ k: 'hold' }); renderDock(true); return;
     case 'firem': app.fireM = !app.fireM ? 30 : app.fireM === 30 ? 120 : 0; renderDock(true); return;
     case 'trail': app.showTrail = app.showTrail === false; renderDock(true); return;
     case 'clrtrk': app.sel.forEach(function (id) { var uu = W.unitById(st, id); if (uu) { uu.trk = []; uu.dist = 0; } }); renderDock(true); return;

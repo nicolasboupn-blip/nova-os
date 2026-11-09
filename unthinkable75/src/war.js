@@ -1266,6 +1266,20 @@ function zoneStep(st, dt) {
   });
   if (changed) st.blocV = ++BV;
 }
+// ---- statistics: expected damage (percent of the target's strength) at full strength/supply/morale, open ground, no digging in
+function dmgInfo(aid, tid) {
+  var a = U[aid], e = U[tid], r = {}; if (!a || !e) return r;
+  var eg = e.ground && !e.heli && !e.air && !e.naval, en = e.naval && !e.sub;
+  if (eg && a.ground && !a.heli && (a.cls === 'gnd' || a.cls === 'recon' || a.cls === 'arty') && a.a > 0) {
+    var soft = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'ssm' || e.cls === 'aa') ? 1.6 : e.cls === 'arty' ? 1.3 : 1;
+    r.fire = 3.2 * a.a * (a.cls === 'arty' ? 0.9 : 1) * soft / (e.d + 2);
+  }
+  if (eg && a.cls === 'arty' && a.a > 0) { var sb = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'aa' || e.cls === 'arty') ? 1.5 : 1; r.barrage = 10 * a.a * 1.6 * sb / (e.d + 2); }
+  if (eg && a.cls === 'ssm' && a.cdmg) { var sm = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'aa' || e.cls === 'arty' || e.cls === 'ssm') ? 1.7 : 1; r.missile = a.cdmg * sm / (e.d + 1.5); }
+  if ((eg || en) && (a.air || a.heli) && a.a2g > 0 && (a.roles ? a.roles.indexOf('cas') >= 0 : a.heli)) { var sl = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'arty' || e.cls === 'ssm' || e.cls === 'aa') ? 1.6 : 1; if (eg) r.loiter = a.a2g * 0.16 * 60 * sl / (e.d + 2); }
+  if (en && a.naval && a.msl) { var pk = 0.8 / (1 + 0.22 * (e.aaP || 0)); r.salvo = (a.salvo || 2) * pk * (a.mdmg || 22) / (1 + 0.12 * Math.max(0, e.d - 3)); }
+  return r;
+}
 function flipCity(st, i, side) {
   st.units.forEach(function (u) { if (u.side === side && u.str > 0 && dist(u.x, u.y, MAP.cities[i][1], MAP.cities[i][2]) < 9 && (U[u.type].ground)) uhist(st, u, 'Took ' + MAP.cities[i][0] + '.'); });
   var cd = st.cd[i], C = MAP.cities[i], was = cd.o; cd.o = side; cd.cp = 0; paintCityDisc(st, i, side); refreshBloc(st); cd.stk = Math.floor(cd.stk * 0.4); cd.inf = Math.max(20, cd.inf - 25);
@@ -1870,7 +1884,7 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, dmgInfo: dmgInfo, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus, killUnit: killUnit, SAM_CD: SAM_CD };
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;
