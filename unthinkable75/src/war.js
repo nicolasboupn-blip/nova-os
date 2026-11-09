@@ -742,7 +742,7 @@ function missileFire(st, u, o, dt) {
       if (e.side === u.side || e.str <= 0 || e.cargoed) return; var ed = U[e.type]; if (ed.air && e.state !== 'base') return; if (ed.naval && ed.sub) return;
       if (dist(e.x, e.y, cx, cy) > 2.8) return;
       var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'aa' || ed.cls === 'arty' || ed.cls === 'ssm' || ed.air) ? 1.7 : 1;
-      var dm = d.cdmg * (u.str / 100) * supF(u) * soft * rr(st, 0.7, 1.3) / (ed.d * (e.dig > 0 ? 1 + 0.3 * e.dig : 1) + 1.5);
+      var dm = dmul(st, u) * d.cdmg * (u.str / 100) * supF(u) * soft * rr(st, 0.7, 1.3) / (ed.d * (e.dig > 0 ? 1 + 0.3 * e.dig : 1) + 1.5);
       e.str -= dm; e.mor -= dm * 0.9; e.bt = 60; e.hit = st.t; hit++;
       if (e.side === st.side) ev(st, 'battle', ed.n + ' hit by a missile', e.x, e.y);
       uhist(st, e, 'Hit by a ' + d.mname + ' missile (str ' + Math.round(Math.max(0, e.str)) + '%).');
@@ -761,7 +761,7 @@ function volley(st, u, o) {
     if (e.side === u.side || e.str <= 0 || e.cargoed || U[e.type].air || U[e.type].heli) return; var ed = U[e.type]; if (ed.naval && ed.sub) return;
     if (dist(e.x, e.y, cx, cy) > 3.6) return;
     var soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'eng' || ed.cls === 'aa' || ed.cls === 'arty') ? 1.5 : 1;
-    var dm = d.a * (u.str / 100) * supF(u) * morF(u) * 1.6 * soft / (ed.d * (e.dig > 0 ? 1 + 0.45 * e.dig : 1) + 2) * rr(st, 0.7, 1.3);
+    var dm = dmul(st, u) * d.a * (u.str / 100) * supF(u) * morF(u) * 1.6 * soft / (ed.d * (e.dig > 0 ? 1 + 0.45 * e.dig : 1) + 2) * rr(st, 0.7, 1.3);
     e.str -= dm; e.mor -= dm * 0.8; e.bt = 60; e.hit = st.t; e.dig = Math.max(0, e.dig - 0.03);
     if (e.side === st.side) ev(st, 'battle', ed.n + ' is being shelled', e.x, e.y);
     uhist(st, e, 'Under artillery fire (str ' + Math.round(Math.max(0, e.str)) + '%).');
@@ -1032,7 +1032,7 @@ function fireMissiles(st, a, b) {
     var hit = rnd(st) < pk; if (hit) hits++;
     st.fx.push({ k: 'shell', x0: a.x, y0: a.y, x1: b.x + rr(st, -1, 1), y1: b.y + rr(st, -1, 1), t: st.t, s: a.side, m: 1 });
   }
-  var dm = hits * (da.mdmg || 22) * (a.mor > 30 ? 1 : 0.6) / (1 + 0.12 * (db.d - 3 > 0 ? db.d - 3 : 0));
+  var dm = dmul(st, a) * hits * (da.mdmg || 22) * (a.mor > 30 ? 1 : 0.6) / (1 + 0.12 * (db.d - 3 > 0 ? db.d - 3 : 0));
   b.str -= dm; b.mor -= dm * 0.5; b.bt = 60; b.hit = st.t;
   var msg = da.n.split(' (')[0] + ' fired ' + n + ' ' + (da.mname || 'missiles') + ' at ' + db.n.split(' (')[0] + ': ' + hits + ' hit' + (hits === 1 ? '' : 's') + ' (' + Math.floor(a.msl) + ' left).';
   uhist(st, a, 'Fired ' + n + ' ' + (da.mname || 'missiles') + ' (' + hits + ' hits, ' + Math.floor(a.msl) + ' left).');
@@ -1069,7 +1069,7 @@ function navalCombat(st, dt, ships) {
       });
       if (best) {
         var db2 = U[best.type], pw = best.sub ? (da.sub ? da.sa * 0.7 : da.asw * 1.1) : sa;
-        var dm = pw * (a.str / 100) * supF(a) * morF(a) * hr * K / (db2.d + 1.5) * rr(st, 0.7, 1.3);
+        var dm = dmul(st, a) * pw * (a.str / 100) * supF(a) * morF(a) * hr * K / (db2.d + 1.5) * rr(st, 0.7, 1.3);
         if (da.sub) a.reveal = st.t + 40;
         best.str -= dm; best.mor -= dm * 0.3; a.bt = 60; best.bt = 60; a.sup = Math.max(0, a.sup - 0.25 * hr);
         if (best.side === st.side && st.set.pause.battle) ev(st, 'battle', U[best.type].n + ' under attack', best.x, best.y);
@@ -1155,7 +1155,7 @@ function combat(st, dt) {
     if (u.hidden && tg[0][0] > 4) return;   // an ambusher waits for the enemy to come close
     if (u.hidden) { var b0 = tg[0][1]; u.hidden = false; u.amb = 0; u.ambT = st.t + 45; uhist(st, u, 'Sprang an ambush on ' + U[b0.type].n.split(' (')[0] + '.'); if (u.side === st.side) ev(st, 'info', 'Ambush sprung near ' + placeName(u.x, u.y) + '.', u.x, u.y); }
     var nT = (stance === 'aggr' && !isArty) ? Math.min(4, tg.length) : 1, share = nT > 1 ? Math.min(1.6, 1 + 0.2 * (nT - 1)) / nT : 1;   // aggressive: fires at everything in its circle
-    var base = d.a * (u.str / 100) * supF(u) * morF(u);
+    var base = dmul(st, u) * d.a * (u.str / 100) * supF(u) * morF(u);
     if (isArty) base *= 0.9;
     for (var ti = 0; ti < nT; ti++) {
       var best = tg[ti][1];
@@ -1276,7 +1276,9 @@ function zoneStep(st, dt) {
   if (changed) st.blocV = ++BV;
 }
 // ---- statistics: expected damage (percent of the target's strength) at full strength/supply/morale, open ground, no digging in
-function dmgInfo(aid, tid) {
+function dmul(st, u) { var m = st.dmgMul && st.dmgMul[u.type]; return m == null ? 1 : m; }
+function setDmgMul(st, types, m) { st.dmgMul = st.dmgMul || {}; types.forEach(function (t) { if (Math.abs(m - 1) < 0.001) delete st.dmgMul[t]; else st.dmgMul[t] = m; }); }
+function dmgInfo(aid, tid, mul) {
   var a = U[aid], e = U[tid], r = {}; if (!a || !e) return r;
   var eg = e.ground && !e.heli && !e.air && !e.naval, en = e.naval && !e.sub;
   if (eg && a.ground && !a.heli && (a.cls === 'gnd' || a.cls === 'recon' || a.cls === 'arty') && a.a > 0) {
@@ -1287,6 +1289,7 @@ function dmgInfo(aid, tid) {
   if (eg && a.cls === 'ssm' && a.cdmg) { var sm = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'aa' || e.cls === 'arty' || e.cls === 'ssm') ? 1.7 : 1; r.missile = a.cdmg * sm / (e.d + 1.5); }
   if ((eg || en) && (a.air || a.heli) && a.a2g > 0 && (a.roles ? a.roles.indexOf('cas') >= 0 : a.heli)) { var sl = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'arty' || e.cls === 'ssm' || e.cls === 'aa') ? 1.6 : 1; if (eg) r.loiter = a.a2g * 0.16 * 60 * sl / (e.d + 2); }
   if (en && a.naval && a.msl) { var pk = 0.8 / (1 + 0.22 * (e.aaP || 0)); r.salvo = (a.salvo || 2) * pk * (a.mdmg || 22) / (1 + 0.12 * Math.max(0, e.d - 3)); }
+  if (mul != null && mul !== 1) for (var kk in r) r[kk] *= mul;
   return r;
 }
 function flipCity(st, i, side) {
@@ -1391,7 +1394,7 @@ function landAt(st, u, spot) {
   u.str = Math.min(100, u.str + 4);
 }
 function loiterAttack(st, u, o, cx, cy, R, dt) {
-  var d = U[u.type], hits = 0, ps = d.a2g * (u.str / 100) * 0.16;
+  var d = U[u.type], hits = 0, ps = dmul(st, u) * d.a2g * (u.str / 100) * 0.16;
   if (ps <= 0) return;
   st.units.forEach(function (e) {
     if (e.side === u.side || e.str <= 0 || e.cargoed) return; var ed = U[e.type]; if (!ed.ground && !ed.naval) return; if (ed.naval && ed.sub) return;
@@ -1507,7 +1510,7 @@ function airCombat(st, dt) {
 }
 function resolveStrike(st, u, o) {
   var d = U[u.type], side = u.side, foe = OTHER[side];
-  var power = (d.a2g || 0) * (u.str / 100) * (u.base != null && u.base === u.home || u.homeT ? 1.0 : 1) * (d.heli ? 0.8 : 1) * (1 + 0.15 * (u.homeFlag || 0));
+  var power = dmul(st, u) * (d.a2g || 0) * (u.str / 100) * (u.base != null && u.base === u.home || u.homeT ? 1.0 : 1) * (d.heli ? 0.8 : 1) * (1 + 0.15 * (u.homeFlag || 0));
   var homeNear = u.homeT && nearestFriendlyLanding(st, { x: u.homeT.x, y: u.homeT.y, side: side, type: u.type }, 40);
   if (homeNear && u.home != null && homeNear.af === u.home) power *= 1.15;
   var msg = '', hits = 0;
@@ -1893,7 +1896,7 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, setStance: setStance, dmgInfo: dmgInfo, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, setStance: setStance, dmgInfo: dmgInfo, setDmgMul: setDmgMul, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus, killUnit: killUnit, SAM_CD: SAM_CD };
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;

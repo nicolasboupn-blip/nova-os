@@ -708,22 +708,24 @@ function panelEsc() {
 var MODES = { fire: ['Direct fire', '% per hour'], barrage: ['Barrage', '% per hour'], missile: ['Missile strike', '% per missile'], loiter: ['Circle & attack', '% per hour'], salvo: ['Missile salvo', '% per salvo'] };
 function statUnits(side) { var E = W.getEra(); return Object.keys(U).filter(function (k) { return U[k].side === side && (U[k].era === E || U[k].era === 'b'); }).sort(function (a, b) { return (clsName(U[a]) + U[a].n).localeCompare(clsName(U[b]) + U[b].n); }); }
 function clsName(d) { return d.naval ? (d.sub ? 'Submarine' : 'Ship') : d.air ? 'Aircraft' : d.heli ? 'Helicopter' : ({ gnd: 'Combat', arty: 'Artillery', ssm: 'Missiles', aa: 'Air defence', recon: 'Recon', eng: 'Engineers', train: 'Supply train', convoy: 'Supply convoy' }[d.cls] || d.cls); }
+function mulOf(k) { var m = app.st.dmgMul && app.st.dmgMul[k]; return m == null ? 1 : m; }
 function panelStats() {
-  var side = app.statSide || app.st.side, foe = W.OTHER[side], h = '<div class="hint">Expected damage to the target as % of its strength. Full-strength attacker, full supply, open ground, target not dug in. Damage drops if the target digs in or sits in a city.</div><div class="chips">' + chip('statside:' + app.st.side, 'YOUR UNITS', '', side === app.st.side) + chip('statside:' + W.OTHER[app.st.side], 'ENEMY UNITS', '', side !== app.st.side) + '</div>';
+  var side = app.statSide || app.st.side, foe = W.OTHER[side], h = '<div class="hint">Expected damage to the target as % of its strength. Full-strength attacker, full supply, open ground, target not dug in. Damage drops if the target digs in or sits in a city.</div><div class="chips">' + chip('statside:' + app.st.side, 'YOUR UNITS', '', side === app.st.side) + chip('statside:' + W.OTHER[app.st.side], 'ENEMY UNITS', '', side !== app.st.side) + '</div><div class="lbl">Damage tuning (' + (side === app.st.side ? 'your' : 'enemy') + ' side)</div><div class="chips">' + chip('statall:-25', 'ALL −25%') + chip('statall:25', 'ALL +25%') + chip('statall:art:25', 'ARTILLERY +25%') + chip('statall:art:-25', 'ARTILLERY −25%') + chip('statreset', '↺ RESET ALL') + '</div>';
   var open = app.statOpen, lastC = '';
   statUnits(side).forEach(function (k) {
     var d = U[k], isOpen = open === k, cn = clsName(d);
     if (cn !== lastC) { lastC = cn; h += '<div class="lbl">' + esc(cn) + '</div>'; }
-    h += '<div class="srow' + (isOpen ? ' on' : '') + '" data-a="statopen:' + k + '"><div class="n">' + esc(d.n) + '</div><div class="s">' + (d.a != null ? 'ATK ' + d.a + ' · ' : '') + (d.d != null && !d.air ? 'DEF ' + d.d + ' · ' : '') + (d.a2a != null ? 'A2A ' + d.a2a + ' · A2G ' + d.a2g + ' · ' : '') + (d.sight ? 'SIGHT ' + d.sight + ' km · ' : '') + (d.rng ? 'RNG ' + d.rng + ' km · ' : '') + 'COST ' + d.cost + '</div></div>';
+    h += '<div class="srow' + (isOpen ? ' on' : '') + '" data-a="statopen:' + k + '"><div class="n">' + esc(d.n) + (mulOf(k) !== 1 ? ' <span class="mul">×' + Math.round(mulOf(k) * 100) + '%</span>' : '') + '</div><div class="s">' + (d.a != null ? 'ATK ' + d.a + ' · ' : '') + (d.d != null && !d.air ? 'DEF ' + d.d + ' · ' : '') + (d.a2a != null ? 'A2A ' + d.a2a + ' · A2G ' + d.a2g + ' · ' : '') + (d.sight ? 'SIGHT ' + d.sight + ' km · ' : '') + (d.rng ? 'RNG ' + d.rng + ' km · ' : '') + 'COST ' + d.cost + '</div></div>';
     if (!isOpen) return;
+    h += '<div class="sdet tune"><b>Damage dealt</b> <span>' + Math.round(mulOf(k) * 100) + '% of normal</span><div class="chips">' + chip('statmul:' + k + ':-50', '−50') + chip('statmul:' + k + ':-10', '−10') + chip('statmul:' + k + ':10', '+10') + chip('statmul:' + k + ':50', '+50') + chip('statmul:' + k + ':x2', '×2') + chip('statmul:' + k + ':reset', '↺') + '</div></div>';
     var foes = Object.keys(U).filter(function (t) { return U[t].side === foe && (U[t].era === W.getEra() || U[t].era === 'b'); }), any = false;
     ['fire', 'barrage', 'missile', 'loiter', 'salvo'].forEach(function (m) {
-      var rows = foes.map(function (t) { var r = W.dmgInfo(k, t); return r[m] != null ? [t, r[m]] : null; }).filter(Boolean).sort(function (a, b) { return b[1] - a[1]; });
+      var rows = foes.map(function (t) { var r = W.dmgInfo(k, t, mulOf(k)); return r[m] != null ? [t, r[m]] : null; }).filter(Boolean).sort(function (a, b) { return b[1] - a[1]; });
       if (!rows.length) return; any = true; var mx = rows[0][1];
       h += '<div class="sdet"><b>' + MODES[m][0] + '</b> <span>' + MODES[m][1] + '</span>' + rows.map(function (r) { return '<div class="dr"><span class="t">' + esc(U[r[0]].n) + '</span><i style="width:' + Math.max(3, r[1] / mx * 100) + '%"></i><span class="v">' + r[1].toFixed(1) + '</span></div>'; }).join('') + '</div>';
     });
     if (!any) h += '<div class="sdet"><span>This unit does not deal damage by itself.</span></div>';
-    var dealers = foes.map(function (t) { var r = W.dmgInfo(t, k), v = Math.max(r.fire || 0, r.barrage || 0, r.missile || 0, r.loiter || 0, r.salvo || 0); return v > 0 ? [t, v] : null; }).filter(Boolean).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
+    var dealers = foes.map(function (t) { var r = W.dmgInfo(t, k, mulOf(t)), v = Math.max(r.fire || 0, r.barrage || 0, r.missile || 0, r.loiter || 0, r.salvo || 0); return v > 0 ? [t, v] : null; }).filter(Boolean).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
     if (dealers.length) h += '<div class="sdet"><b>Hurt most by</b> <span>best mode, % per hour or per shot</span>' + dealers.map(function (r) { return '<div class="dr"><span class="t">' + esc(U[r[0]].n) + '</span><i class="x" style="width:' + Math.max(3, r[1] / dealers[0][1] * 100) + '%"></i><span class="v">' + r[1].toFixed(1) + '</span></div>'; }).join('') + '</div>';
   });
   return h;
@@ -841,6 +843,9 @@ document.addEventListener('click', function (ev) {
     case 'utab': app.utab = arg; renderDock(true); return;
     case 'simple': app.simple = arg === '1'; renderDock(true); return;
     case 'statside': app.statSide = arg; app.statOpen = null; renderDock(true); return;
+    case 'statmul': { var sp = arg.split(':'), tk = sp[0], mv = sp[1], cur = mulOf(tk) * 100; var nv = mv === 'reset' ? 100 : mv === 'x2' ? cur * 2 : cur + (+mv); W.setDmgMul(st, [tk], Math.max(0, Math.min(1000, nv)) / 100); renderDock(true); return; }
+    case 'statall': { var sa = arg.split(':'), onlyArt = sa[0] === 'art', dl = +(onlyArt ? sa[1] : sa[0]); var side2 = app.statSide || st.side; var ids = statUnits(side2).filter(function (k) { return !onlyArt || U[k].cls === 'arty'; }); ids.forEach(function (k) { W.setDmgMul(st, [k], Math.max(0, Math.min(10, mulOf(k) + dl / 100))); }); renderDock(true); return; }
+    case 'statreset': { var all = Object.keys(st.dmgMul || {}); W.setDmgMul(st, all, 1); toast('Damage reset to normal'); renderDock(true); return; }
     case 'statopen': app.statOpen = app.statOpen === arg ? null : arg; renderDock(true); return;
     case 'cfire': issue({ k: 'hold' }); renderDock(true); return;
     case 'firem': app.fireM = !app.fireM ? 30 : app.fireM === 30 ? 120 : 0; renderDock(true); return;
