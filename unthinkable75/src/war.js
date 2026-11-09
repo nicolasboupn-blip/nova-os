@@ -623,7 +623,7 @@ function haulStep(st, u, o, dt) {
   var tgt = u.load > 0 ? to : from;
   if (cutAt(st, u.x, u.y) && mode === 'r') return;
   if (!u.path) { u.path = findPath(mode, u.x, u.y, tgt[1], tgt[2]); if (!u.path) { u.orders.shift(); ev(st, 'idle', d.n + ': no ' + (mode === 'r' ? 'rail' : 'road') + ' link.', u.x, u.y); return; } }
-  var done = followPath(u, d.sp * (mode === 'r' ? 1 : (G.road[cellOf(u.x, u.y)] ? 1 : 0.42)) * dt / 60);
+  var done = followPath(u, d.sp * (mode === 'r' ? 1 : (G.road[cellOf(u.x, u.y)] ? 1.3 : 0.3)) * dt / 60);
   if (!done) return;
   u.path = null;
   if (u.load > 0) {
