@@ -4840,7 +4840,7 @@ function drawUnitIcon(c, x, y, u, col, o) {
 /* ---------- drawing the live layer ---------- */
 function ownUnits() { return app.st.units.filter(function (u) { return u.side === app.st.side && u.str > 0 && !u.cargoed; }); }
 function drawn(u) { var d = U[u.type]; return !(d.air && u.state === 'base') || app.view.z >= 0.8; }
-var PARK = {};
+var PARK = {}, VP = {};
 function parkMap(st) {
   PARK = {}; var by = {};
   st.units.forEach(function (u) { if (u.side === st.side && U[u.type].air && u.state === 'base' && u.base != null && u.str > 0 && !u.cargoed) (by[u.base] = by[u.base] || []).push(u); });
@@ -4848,7 +4848,15 @@ function parkMap(st) {
 }
 function upos(u) {
   var d = U[u.type]; if (d.air && u.state === 'base' && PARK[u.id] != null && app.view.z >= 0.8) { var p = w2s(u.x, u.y), i = PARK[u.id]; return [p[0] + ((i % 4) - 1.5) * 31, p[1] + 20 + Math.floor(i / 4) * 25]; }
-  return w2s(u.x, u.y);
+  var v = VP[u.id], nw = performance.now();
+  if (!v) v = VP[u.id] = { x: u.x, y: u.y, t: nw };
+  else if (v.t !== nw) {
+    var dx = u.x - v.x, dy = u.y - v.y, dt = Math.min(0.25, (nw - v.t) / 1000);
+    if (Math.sqrt(dx * dx + dy * dy) * app.view.z > 260 || dt <= 0) { v.x = u.x; v.y = u.y; }
+    else { var sp = SPEEDS[app.speed] || 1, f = 1 - Math.exp(-dt / Math.min(1.2, Math.max(0.22, 0.7 / sp))); v.x += dx * f; v.y += dy * f; }
+    v.t = nw;
+  }
+  return w2s(v.x, v.y);
 }
 function airStacks(st) {
   var by = {}; st.units.forEach(function (u) { if (u.side === st.side && U[u.type].air && u.state === 'base' && u.base != null && u.str > 0) (by[u.base] = by[u.base] || []).push(u); });
