@@ -319,7 +319,7 @@ function pickAt(sx, sy) {
 /* ---------- order picking ---------- */
 var PICKTXT = { move: 'Tap the map: where should it go?', amove: 'Tap the map: attack-move there (fights anything on the way).', hunt: 'Tap an enemy contact (identified or ?) to hunt it down.', cas: 'Tap an enemy contact or a spot for the ground attack.',
   strike: 'Tap an enemy city or airfield to bomb, or any spot.', cut: 'Tap a railway line to cut it with a strike.', recon: 'Tap the map: recon flight to there.', loiter: 'Tap the map: aircraft circle there and keep hitting enemy ground units in the area until low on fuel.', cap: 'Tap the map: combat air patrol over there.', awacs: 'Tap the map: AWACS station.',
-  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', bombard: 'Tap the enemy position to shell (the ship sails to within gun range).', sealift1: 'Tap the ground unit to load (near the coast).', sealift2: 'Tap the landing spot on the coast.', board: 'Tap your carrier (APC / BTR unit or truck convoy) to climb aboard.', merge: 'Tap another unit of the same type to merge into it.', mine: 'Tap where the engineers should lay a minefield.', nuke: 'Tap the target for the strike.', fire: 'Tap the spot to shell. Red ring = gun range; the battery moves into range first.' };
+  land: 'Tap one of your airfields to land there.', haul1: 'Tap the friendly city to load supplies from.', haul2: 'Now tap the friendly city to deliver to.', lift1: 'Tap the light unit to pick up.', lift2: 'Tap where to drop it.', bombard: 'Tap the enemy position to shell (the ship sails to within gun range).', sealift1: 'Tap the ground unit to load (near the coast).', sealift2: 'Tap the landing spot on the coast.', board: 'Tap your carrier (APC / BTR unit or truck convoy) to climb aboard.', merge: 'Tap another friendly vehicle of the same kind to merge into it.', mine: 'Tap where the engineers should lay a minefield.', nuke: 'Tap the target for the strike.', fire: 'Tap the spot to shell. Red ring = gun range; the battery moves into range first.' };
 function startPick(kind, extra) { app.pick = { kind: kind }; if (extra) for (var k in extra) app.pick[k] = extra[k]; paintBanner(); }
 function endPick() { app.pick = null; app.addStop = false; paintBanner(); renderDock(true); }
 function issue(cmd) {
@@ -334,7 +334,7 @@ function handlePick(sx, sy) {
     if (st.deploy) { var any = false; app.sel.forEach(function (id) { if (W.deployMove(st, id, w.x, w.y)) any = true; }); if (!any) toast('Place units on your own territory (aircraft: use BASE AT).'); else ok = true; }
     else { if (!W.isLand(w.x, w.y) && !app.sel.some(function (id) { var u = W.unitById(st, id); return u && (W.isHeli(u) || U[u.type].naval); })) { toast('That is water.'); return; } ok = issue({ k: k, x: w.x, y: w.y }); }
   } else if (k === 'hunt') { var c = first('k'); if (!c) { toast('No contact there.'); return; } ok = issue({ k: 'hunt', cid: c.id }); }
-  else if (k === 'board' || k === 'merge') { var tu = first('u'), tun = tu && W.unitById(st, tu.id); if (!tun || app.sel.indexOf(tun.id) >= 0) { toast(k === 'board' ? 'Tap one of your carriers (APC / BTR / truck convoy).' : 'Tap another unit of the same type.'); return; } ok = issue({ k: k, uid: tun.id }); }
+  else if (k === 'board' || k === 'merge') { var tu = first('u'), tun = tu && W.unitById(st, tu.id); if (!tun || app.sel.indexOf(tun.id) >= 0) { toast(k === 'board' ? 'Tap one of your carriers (APC / BTR / truck convoy).' : 'Tap another friendly vehicle (ground with ground, ships with ships).'); return; } ok = issue({ k: k, uid: tun.id }); }
   else if (k === 'mine') { if (!W.isLand(w.x, w.y)) { toast('That is water.'); return; } ok = issue({ k: 'mine', x: w.x, y: w.y }); }
   else if (k === 'bombard') ok = issue({ k: 'bombard', x: w.x, y: w.y });
   else if (k === 'fire') { var cf = first('k'); ok = issue({ k: 'fire', x: cf ? st.con[st.side][cf.id].x : w.x, y: cf ? st.con[st.side][cf.id].y : w.y, mins: app.fireM || 0 }); }
@@ -356,7 +356,7 @@ function handlePick(sx, sy) {
     else ok = issue({ k: 'land', af: a.i, x: M.air[a.i][2], y: M.air[a.i][3] });
   } else if (k === 'haul1') { var c3 = first('c'); if (!c3 || st.cd[c3.i].o !== st.side) { toast('Tap a friendly city.'); return; } p.from = c3.i; p.kind = 'haul2'; paintBanner(); return; }
   else if (k === 'haul2') { var c4 = first('c'); if (!c4 || st.cd[c4.i].o !== st.side || c4.i === p.from) { toast('Tap a different friendly city.'); return; } ok = issue({ k: 'haul', from: p.from, to: c4.i }); }
-  else if (k === 'lift1') { var u1 = first('u'); var lu = u1 && W.unitById(st, u1.id); if (!lu || ['inf', 'vdv', 'cav', 'brdm', 'eng', 'peng'].indexOf(lu.type) < 0) { toast('Helicopters lift infantry, cavalry and engineers.'); return; } p.uid = lu.id; p.kind = 'lift2'; paintBanner(); return; }
+  else if (k === 'lift1') { var u1 = first('u'); var lu = u1 && W.unitById(st, u1.id); var airL = app.sel.some(function (id0) { var s0 = W.unitById(st, id0); return s0 && U[s0.type].air; }); if (!lu || (airL ? (!U[lu.type].ground || U[lu.type].heli || U[lu.type].naval || ['train', 'convoy'].indexOf(U[lu.type].cls) >= 0) : ['inf', 'vdv', 'cav', 'brdm', 'eng', 'peng'].indexOf(lu.type) < 0)) { toast(airL ? 'Pick a friendly ground unit to air-lift.' : 'Helicopters lift infantry, cavalry and engineers.'); return; } p.uid = lu.id; p.kind = 'lift2'; paintBanner(); return; }
   else if (k === 'lift2') ok = issue({ k: 'lift', uid: p.uid, x: w.x, y: w.y });
   else if (k === 'nuke') { p.at = { x: w.x, y: w.y }; var del = W.deliveryFor(st, st.side, w.x, w.y); app.modal = { type: 'nuke', id: p.id, x: w.x, y: w.y, del: del, R: p.R }; renderModal(); return; }
   if (ok && !app.addStop) endPick(); else if (ok) { paintBanner(); }
@@ -411,7 +411,7 @@ function cmdChips(su) {
   if (anyG) h += chip('do:dig', 'DIG IN') + chip('do:hold', 'HOLD');
   if (anyT) h += chip('pick:haul1', 'HAUL SUPPLIES');
   if (anyH) h += chip('pick:move', 'FLY TO') + (roles.cas ? chip('pick:cas', 'ATTACK') : '') + (su.some(function (u) { return U[u.type].lift; }) ? chip('pick:lift1', 'LIFT TROOPS') : '');
-  if (anyA) h += (roles.cas ? chip('pick:cas', 'GROUND ATTACK') : '') + (roles.strike ? chip('pick:strike', 'STRIKE') + chip('pick:cut', 'CUT RAIL') : '') + (roles.cap ? chip('pick:cap', 'PATROL') : '') + (roles.recon ? chip('pick:recon', 'RECON') : '') + (roles.awacs ? chip('pick:awacs', 'AWACS STATION') : '') + chip('pick:land', 'LAND AT');
+  if (anyA) h += (roles.cas ? chip('pick:cas', 'GROUND ATTACK') : '') + (roles.strike ? chip('pick:strike', 'STRIKE') + chip('pick:cut', 'CUT RAIL') : '') + (roles.cap ? chip('pick:cap', 'PATROL') : '') + (roles.recon ? chip('pick:recon', 'RECON') : '') + (roles.awacs ? chip('pick:awacs', 'AWACS STATION') : '') + (roles.lift ? chip('pick:lift1', 'AIR-LIFT A UNIT') : '') + chip('pick:land', 'LAND AT');
   h += '</div><div class="chips">' + chip('stop', '+ STOP', '', app.addStop) + (anyA || su.some(function (u) { return U[u.type].heli; }) ? chip('caph', 'PATROL ' + app.capH + 'h') : '') + chip('clear', 'CLEAR ORDERS') + chip('multi', 'MULTI', '', app.multi) + '</div>';
   return h;
 }
@@ -500,7 +500,7 @@ function unitHead(su) {
   var h = '';
   if (su.length === 1) {
     var u = su[0], d = U[u.type];
-    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">' + ({ aggr: '🔥 Aggressive', pass: '🛡 Passive', neut: '🕊 Neutral' }[u.stance || 'aggr']) + ' · Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + (u.riders && u.riders.length ? '<div class="s">Carrying: ' + u.riders.map(function (id) { var r = W.unitById(app.st, id); return r ? esc(U[r.type].n.split(' (')[0]) : ''; }).join(', ') + '</div>' : (d.carry ? '<div class="s">Carrier: holds ' + d.carry + ' infantry unit. Infantry: BOARD, then tap this unit.</div>' : '')) + '</div><div class="bars">' +
+    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + W.statusOf(u) + ' · ' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">' + ({ aggr: '🔥 Aggressive', pass: '🛡 Passive', neut: '🕊 Neutral' }[u.stance || 'aggr']) + ' · Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + (u.riders && u.riders.length ? '<div class="s">Carrying: ' + u.riders.map(function (id) { var r = W.unitById(app.st, id); return r ? esc(U[r.type].n.split(' (')[0]) : ''; }).join(', ') + '</div>' : (d.carry ? '<div class="s">Carrier: holds ' + d.carry + ' infantry unit. Infantry: BOARD, then tap this unit.</div>' : '')) + '</div><div class="bars">' +
       '<span>STR</span>' + bar(u.str, u.str > 60 ? '' : u.str > 30 ? 'w' : 'r') + '<span>SUPPLY</span>' + bar(u.sup, u.sup > 40 ? '' : u.sup > 15 ? 'w' : 'r') + '<span>MORALE</span>' + bar(u.mor, u.mor > 50 ? '' : u.mor > 25 ? 'w' : 'r') + (d.air ? '<span>FUEL</span>' + bar(u.fuel / (d.rad * 2) * 100, 'c') : '') + (d.msl ? '<span>' + esc(d.mname || 'MISSILES').toUpperCase() + ' ' + Math.floor(u.msl) + '/' + d.msl + '</span>' + bar(u.msl / d.msl * 100, u.msl >= 1 ? 'c' : 'r') : '') + '</div></div>';
   } else {
     var types = {}; su.forEach(function (u) { types[U[u.type].n] = (types[U[u.type].n] || 0) + 1; });
@@ -638,7 +638,7 @@ function uSimple(su, g) {
   var sp = '';
   if (foot) sp += chip('pick:board', '🚌 BOARD CARRIER');
   if (carry) sp += chip('do:unload', '⬇ UNLOAD' + (aboard ? ' (' + aboard + ')' : ''));
-  if (g.gnd && !g.log) sp += chip('pick:merge', '🔗 MERGE');
+  if ((g.gnd || g.nav) && !g.log) sp += chip('pick:merge', '🔗 MERGE');
   if (eng) sp += chip('do:mine', '⛓ MINES HERE') + chip('pick:mine', '⛓ MINES AT…') + chip('do:repair', '🔧 REPAIR NEARBY');
   if (g.heli && any(function (x) { return U[x.type].lift; })) sp += chip('pick:lift1', '🚁 LIFT TROOPS');
   if (g.nv.some(function (d) { return d.lift; })) sp += chip('pick:sealift1', '🚢 SEALIFT TROOPS');
@@ -706,7 +706,7 @@ function panelEsc() {
   W.nukeOptions(st, side).forEach(function (o) { h += '<div class="card' + (o.ok ? '' : ' off') + '" ' + (o.ok ? 'data-a="nuke:' + o.id + '"' : '') + '><h3><span>' + esc(o.name) + '</span><span class="mono nuke">L' + o.lvl + '</span></h3><p>' + esc(o.desc) + '</p>' + (o.why ? '<div class="why">' + esc(o.why) + '</div>' : '') + '</div>'; });
   return h;
 }
-var MODES = { fire: ['Direct fire', '% per hour'], barrage: ['Barrage', '% per hour'], missile: ['Missile strike', '% per missile'], loiter: ['Circle & attack', '% per hour'], salvo: ['Missile salvo', '% per salvo'] };
+var MODES = { fire: ['Direct fire', '% per hour'], barrage: ['Barrage', '% per hour'], missile: ['Missile strike', '% per missile'], loiter: ['Circle & attack', '% per hour'], salvo: ['Missile salvo', '% per salvo'], shipland: ['Ship missiles vs land', '% per salvo'], dogfight: ['Air-to-air', '% per hour'], parked: ['Missiles on parked aircraft', '% per sortie'], shotdown: ['Anti-air fire', '% per hour (in range)'] };
 function statUnits(side) { var E = W.getEra(); return Object.keys(U).filter(function (k) { return U[k].side === side && (U[k].era === E || U[k].era === 'b'); }).sort(function (a, b) { return (clsName(U[a]) + U[a].n).localeCompare(clsName(U[b]) + U[b].n); }); }
 function clsName(d) { return d.naval ? (d.sub ? 'Submarine' : 'Ship') : d.air ? 'Aircraft' : d.heli ? 'Helicopter' : ({ gnd: 'Combat', arty: 'Artillery', ssm: 'Missiles', aa: 'Air defence', recon: 'Recon', eng: 'Engineers', train: 'Supply train', convoy: 'Supply convoy' }[d.cls] || d.cls); }
 function mulOf(k) { var m = app.st.dmgMul && app.st.dmgMul[k]; return m == null ? 1 : m; }
@@ -764,7 +764,7 @@ function renderEnd() {
   return '<div class="hero"><span class="badge ' + o + '">' + (o === 'win' ? 'Victory' : o === 'loss' ? 'Defeat' : 'No winner') + '</span><h1 style="margin-top:10px">' + esc(e.title) + '</h1><p>' + esc(e.text) + '</p></div><div class="page scroll"><div class="card"><div class="kv"><span>Days fought</span><span>' + e.day + '</span><span>NATO ground gained</span><span>' + Math.round(v.NATO * 100) + '%</span><span>Pact ground gained</span><span>' + Math.round(v.PACT * 100) + '%</span><span>NATO units lost</span><span>' + st.stats.lost.NATO + '</span><span>Pact units lost</span><span>' + st.stats.lost.PACT + '</span><span>Nuclear strikes</span><span>' + st.stats.nukes + '</span><span>Highest escalation</span><span>' + W.ESC_NAMES[st.stats.maxEsc] + '</span></div></div><button class="pri" data-a="home" style="width:100%">Back to slots</button></div>';
 }
 function gameSkeleton() {
-  return '<div class="top"><button data-a="menu" aria-label="Menu">☰</button><div class="clock"><b id="clk"></b><span id="sub"></span></div><div id="spd" style="display:flex;gap:4px"></div><button data-a="mini" aria-label="Shrink">▾</button></div>' +
+  return '<div class="top"><button data-a="menu" aria-label="Menu">☰</button><div class="clock"><b id="clk"></b><span id="sub"></span></div><div id="spd" style="display:flex;gap:4px"></div><button data-a="bg" id="bgb" aria-label="Keep playing in background" title="Keep the war running while you use other apps">⏱</button><button data-a="mini" aria-label="Shrink">▾</button></div>' +
     '<div class="stage" id="stage"><canvas></canvas><div class="hud" id="hud"></div><div class="toast" id="toast" style="display:none"></div><div id="banner"></div><div class="zoomc"><button data-a="zin">+</button><button data-a="zout">−</button><button data-a="home-view">⌖</button></div></div>' +
     '<div class="dock h' + app.dock + '" id="dock"><div class="tabs" id="tabs"></div><div class="body" id="body"></div></div>';
 }
@@ -779,6 +779,7 @@ function renderMini() { var el = $('mini'), st = app.st; el.innerHTML = st ? '<b
 function paintTop() {
   var st = app.st; if (!st || app.screen !== 'game') return; var c = $('clk'); if (!c) return;
   c.textContent = W.dateStr(st.t).slice(0, 6) + ' ' + W.dateStr(st.t).slice(-5); $('sub').textContent = st.side + ' · day ' + W.dayOf(st) + '/' + W.MAX_DAYS + (st.deploy ? ' · deploy' : '');
+  var bb = $('bgb'); if (bb) bb.className = app.bg ? 'on' : '';
   $('spd').innerHTML = st.deploy ? '<button class="pri" data-a="start">START WAR</button>' : TOPSPD.map(function (t) { return '<button data-a="speed:' + t[0] + '" class="' + (app.speed === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('');
 }
 function paintHud() {
@@ -837,6 +838,7 @@ document.addEventListener('click', function (ev) {
     case 'cancelm': app.modal = null; if (app.pick && app.pick.kind === 'nuke') app.pick.at = null; break;
     case 'tab': app.tab = arg; if (!app.dock) app.dock = 1; renderDock(true); paintTop(); return;
     case 'dock': app.dock = (app.dock + 1) % 3; renderDock(true); setTimeout(sizeCanvas, 30); return;
+    case 'bg': app.bg = !app.bg; try { localStorage.setItem('u75bg', app.bg ? '1' : '0'); } catch (e) {} bgLast = Date.now(); toast(app.bg ? '⏱ Keep-playing ON: the war runs at your current speed while you do other things.' : '⏱ Keep-playing OFF: the war pauses when you leave.'); paintTop(); return;
     case 'speed': if (st && !st.deploy) { app.speed = +arg; paintTop(); renderDock(true); } return;
     case 'ap': st.set.pause[arg] = !st.set.pause[arg]; renderDock(true); return;
     case 'layer': app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
@@ -909,10 +911,26 @@ function bindCanvas() {
 function pinchDist() { var k = Object.keys(ptrs); if (k.length < 2) return 0; var a = ptrs[k[0]], b = ptrs[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
 
 /* ---------- the clock ---------- */
+var bgLast = Date.now();
+try { app.bg = localStorage.getItem('u75bg') === '1'; } catch (e) { app.bg = false; }
+// keep-playing: while the page is hidden / shrunk, a timer advances the game by the real time that passed (at the chosen speed).
+function bgAdvance(budgetMs) {
+  var now = Date.now(), el = (now - bgLast) / 1000; bgLast = now; var st = app.st;
+  if (!app.bg || !st || st.deploy || st.ended || app.speed <= 0 || app.screen !== 'game') return;
+  var mins = Math.min(SPEEDS[app.speed] * el, 60 * 24 * 14), t0 = Date.now(), done = 0;
+  while (mins >= 1 && Date.now() - t0 < (budgetMs || 1200)) {
+    var chunk = Math.min(15, Math.floor(mins)), hit = W.advance(st, chunk); mins -= chunk; done += chunk;
+    if (hit || st.ended) { app.speed = 0; if (hit && hit.m) { app.toast = hit.m; app.toastT = Date.now() + 6000; } break; }
+  }
+  st.events.length = 0;
+  if (st.ended) { saveSlot(); app.screen = 'end'; if (!document.hidden && !app.mini) render(); return; }
+  if (done && Date.now() - lastSave > 25000) { lastSave = Date.now(); saveSlot(); }
+}
+setInterval(function () { if (app.bg && (document.hidden || app.mini)) bgAdvance(1200); else bgLast = Date.now(); }, 1000);
 var lastTs = 0, acc = 0, lastSave = Date.now(), lastPanel = 0, lastTop = 0;
 function frame(ts) {
   requestAnimationFrame(frame);
-  var st = app.st; if (app.screen !== 'game' || !st || app.mini || document.hidden) { lastTs = ts; return; }
+  var st = app.st; bgLast = Date.now(); if (app.screen !== 'game' || !st || app.mini || document.hidden) { lastTs = ts; return; }
   var dt = Math.min(0.12, (ts - lastTs) / 1000 || 0); lastTs = ts;
   if (!st.deploy && app.speed > 0 && !st.ended && !app.modal) {
     acc += SPEEDS[app.speed] * dt; var run = Math.floor(Math.min(acc, 90)); acc -= run; if (acc > 400) acc = 400;
@@ -932,13 +950,13 @@ function frame(ts) {
   draw();
 }
 window.addEventListener('resize', function () { sizeCanvas(); });
-document.addEventListener('visibilitychange', function () { if (document.hidden) saveSlot(); });
+document.addEventListener('visibilitychange', function () { if (document.hidden) saveSlot(); else if (app.bg) { bgAdvance(2500); lastTs = 0; paintTop(); renderDock(true); } });
 window.addEventListener('pagehide', saveSlot);
 
 /* ---------- host API ---------- */
 window.U75 = { version: '2.0', onClose: null,
   mini: function () { var st = app.st; return st ? { side: st.side, day: W.dayOf(st), esc: st.esc, ended: !!st.ended } : null; },
-  setMini: function (b) { app.mini = !!b; document.body.classList.toggle('mini', !!b); if (b) { app.speed = 0; saveSlot(); } renderMini(); },
+  setMini: function (b) { app.mini = !!b; document.body.classList.toggle('mini', !!b); if (b && !app.bg) { app.speed = 0; } if (b) saveSlot(); if (!b && app.bg) { bgAdvance(2500); paintTop(); } renderMini(); },
   expand: function () { if (window.NovaHost && window.NovaHost.expand) window.NovaHost.expand(); window.U75.setMini(false); },
   open: function (n) { if (openSlot(n)) render(); },
   _app: function () { return app; }, _w2s: function (x, y) { return w2s(x, y); } };

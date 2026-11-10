@@ -152,9 +152,11 @@ air('rf4', 'NATO', 'RF-4C recon wing', 'recon', 1100, 1200, 1, 0, 5, 1, ['recon'
 air('f15', 'NATO', 'F-15A Eagle wing', 'fighter', 1300, 900, 10, 4, 12, 3, ['cap', 'cas'], { note: 'Alt-history: the Eagle only entered service in 1976, Europe 1977.' });
 air('b52', 'NATO', 'B-52 bomber wing', 'bomber', 800, 3000, 0, 14, 14, 3, ['strike', 'cas'], { nuke: true, note: 'Heavy bombers fly from far outside the theatre.' });
 air('vulcan', 'NATO', 'Avro Vulcan B.2 bomber wing (RAF)', 'bomber', 900, 2800, 0, 11, 11, 1, ['strike'], { nuke: true, note: 'RAF V-bomber; real 1975 nuclear strike force.' });
-air('ec121', 'NATO', 'EC-121 Warning Star AEW', 'awacs', 450, 1000, 0, 0, 6, 2, ['awacs'], { radar: 220, note: 'Real 1975 airborne early warning.' });
-air('e3', 'NATO', 'E-3 Sentry AWACS', 'awacs', 700, 1500, 0, 0, 10, 3, ['awacs'], { radar: 400, note: 'Alt-history: the E-3 entered service in 1977.' });
-air('kc135', 'NATO', 'KC-135 tanker', 'tanker', 800, 1500, 0, 0, 5, 1, ['tanker'], { note: 'Tankers extend NATO air range while they are based safely.' });
+air('ec121', 'NATO', 'EC-121 Warning Star AEW', 'awacs', 450, 1000, 0, 0, 6, 2, ['awacs'], { radar: 300, eye: 300, note: 'Real 1975 airborne early warning.' });
+air('e3', 'NATO', 'E-3 Sentry AWACS', 'awacs', 700, 1500, 0, 0, 10, 3, ['awacs'], { radar: 400, eye: 300, note: 'Alt-history: the E-3 entered service in 1977.' });
+air('e2', 'NATO', 'E-2 Hawkeye AEW', 'awacs', 600, 1200, 0, 0, 8, 1, ['awacs'], { radar: 300, eye: 300, note: 'Radar picture out to 300 km: sees every enemy unit in the area.' });
+air('c130', 'NATO', 'C-130 Hercules transport', 'transport', 540, 1800, 0, 0, 6, 1, ['lift'], { lift: 1, note: 'Air-lifts one ground unit anywhere in range.' });
+air('kc135', 'NATO', 'KC-135 tanker', 'tanker', 800, 1500, 0, 0, 5, 1, ['tanker'], { radar: 300, eye: 300, note: 'Tankers extend NATO air range while they are based safely.' });
 // ---- Pact ground
 gnd('tank', 'PACT', 'Tank division (T-62 / T-72)', 'gnd', 34, 7, 5, 10, 9, 12, 1);
 gnd('mot', 'PACT', 'Motor rifle division (BMP / BTR)', 'gnd', 30, 5, 5, 10, 6, 10, 1, { org: 1.1 });
@@ -183,7 +185,8 @@ air('mig25', 'PACT', 'MiG-25 Foxbat wing', 'fighter', 2200, 1000, 8, 1, 11, 3, [
 air('tu16', 'PACT', 'Tu-16 Badger regiment', 'bomber', 800, 2500, 0, 10, 10, 2, ['strike'], { nuke: true });
 air('tu22', 'PACT', 'Tu-22 Blinder regiment', 'bomber', 1400, 1800, 0, 11, 11, 2, ['strike'], { nuke: true, note: 'Supersonic Soviet bomber.' });
 air('tu95', 'PACT', 'Tu-95 Bear regiment', 'bomber', 700, 4000, 0, 14, 14, 3, ['strike', 'cas'], { nuke: true, note: 'Heavy bomber, flies from deep inside the USSR.' });
-air('tu126', 'PACT', 'Tu-126 Moss AWACS', 'awacs', 650, 1200, 0, 0, 8, 2, ['awacs'], { radar: 250, note: 'Soviet AWACS (1965-84), weak over land clutter.' });
+air('an12', 'PACT', 'An-12 Cub transport', 'transport', 500, 1700, 0, 0, 5, 1, ['lift'], { lift: 1, note: 'Air-lifts one ground unit anywhere in range.' });
+air('tu126', 'PACT', 'Tu-126 Moss AWACS', 'awacs', 650, 1200, 0, 0, 8, 2, ['awacs'], { radar: 300, eye: 300, note: 'Soviet AWACS (1965-84), weak over land clutter.' });
 
 
 // ---- NATO navy (real classes in service in 1975)
@@ -240,6 +243,7 @@ mg('m_boxer', 'NATO', 'Boxer / Patria wheeled APC brigade, carries 1 infantry un
 mg('m_inf', 'NATO', 'Light infantry brigade (Javelin / NLAW)', 'gnd', 18, 3, 6, 9, 5, 8, 1, { org: 1.15 });
 mg('m_fpv', 'NATO', 'FPV drone company', 'gnd', 40, 5, 1, 9, 3, 4, 1, { note: 'Cheap, fragile, deadly at short range.' });
 mg('m_recon', 'NATO', 'Reconnaissance squadron (Boxer / Fennek)', 'recon', 55, 3, 2, 24, 4, 6, 1);
+mg('m_m777', 'NATO', 'M777 155 mm towed howitzer battery', 'arty', 26, 8, 2, 11, 5, 8, 1, { rng: 30, note: 'Light towed 155 mm: cheaper and quicker to field than the self-propelled guns, shorter reach.' });
 mg('m_pzh', 'NATO', 'PzH 2000 / K9 / Archer battalion', 'arty', 34, 9, 2, 12, 7, 10, 1, { rng: 40 });
 mg('m_himars', 'NATO', 'HIMARS / ATACMS battery', 'ssm', 50, 0, 2, 10, 9, 12, 1, { rng: 300, msl: 6, cdmg: 24, mname: 'GMLRS / ATACMS' });
 mg('m_pat', 'NATO', 'Patriot PAC-3 battery', 'aa', 26, 1, 2, 14, 9, 10, 1, { rng: 100, aaP: 9 });
@@ -256,10 +260,14 @@ ma('f15e', 'NATO', 'F-15E Strike Eagle wing', 'strike', 1300, 1300, 6, 11, 13, 1
 ma('a10', 'NATO', 'A-10C Thunderbolt II wing', 'strike', 600, 500, 1, 10, 7, 1, ['cas']);
 ma('m_b1', 'NATO', 'B-1B Lancer wing', 'bomber', 1200, 3500, 0, 16, 16, 1, ['strike', 'cas'], { note: 'Heavy conventional bomber with long-range missiles.' });
 ma('m_b52', 'NATO', 'B-52H Stratofortress wing (JASSM)', 'bomber', 800, 3500, 0, 15, 15, 1, ['strike', 'cas'], { nuke: true });
-ma('e7', 'NATO', 'E-7 Wedgetail / GlobalEye AEW', 'awacs', 700, 1500, 0, 0, 10, 1, ['awacs'], { radar: 450 });
-ma('kc46', 'NATO', 'KC-46 / A330 MRTT tanker', 'tanker', 800, 1800, 0, 0, 5, 1, ['tanker'], { note: 'Tankers extend NATO air range while they are based safely.' });
+ma('e7', 'NATO', 'E-7 Wedgetail / GlobalEye AEW', 'awacs', 700, 1500, 0, 0, 10, 1, ['awacs'], { radar: 450, eye: 300 });
+ma('e2d', 'NATO', 'E-2D Advanced Hawkeye', 'awacs', 600, 1300, 0, 0, 8, 1, ['awacs'], { radar: 350, eye: 300 });
+ma('m_c130', 'NATO', 'C-130J / A400M transport', 'transport', 560, 2000, 0, 0, 6, 1, ['lift'], { lift: 1, note: 'Air-lifts one ground unit anywhere in range.' });
+ma('kc46', 'NATO', 'KC-46 / A330 MRTT tanker', 'tanker', 800, 1800, 0, 0, 5, 1, ['tanker'], { radar: 300, eye: 300, note: 'Tankers extend NATO air range while they are based safely.' });
 ma('mq9', 'NATO', 'MQ-9B SkyGuardian drone wing', 'recon', 300, 1200, 0, 4, 5, 1, ['recon', 'cas'], { note: 'Armed drone: sees far and can strike ground targets.' });
 ma('rq4', 'NATO', 'RQ-4 Global Hawk', 'recon', 600, 3000, 0, 0, 8, 1, ['recon']);
+ms('m_roro', 'NATO', 'RO-RO sealift ship', 'transport', 33, { d: 1, lift: 3, cost: 6, eta: 24 });
+ms('m_lhd', 'NATO', 'Wasp / Mistral-class assault ship (LHD)', 'amphib', 40, { d: 3, lift: 3, aaP: 3, radarA: 80, cost: 11, eta: 52, tier: 2 });
 ms('m_burke', 'NATO', 'Arleigh Burke-class destroyer (Aegis)', 'destroyer', 59, { sa: 4, d: 4, asw: 5, aaP: 9, shore: 3.5, rng: 35, radarA: 160, cost: 11, eta: 48, msl: 8, salvo: 2, mdmg: 22, mname: 'Harpoon / NSM' });
 ms('m_fremm', 'NATO', 'FREMM / Type 26 frigate', 'frigate', 52, { sa: 3, d: 3, asw: 5, aaP: 6, shore: 2, rng: 28, radarA: 110, cost: 8, eta: 36, msl: 4, salvo: 2, mdmg: 20, mname: 'Exocet / NSM' });
 ms('m_visby', 'NATO', 'Visby / Skjold missile corvette', 'corvette', 74, { sa: 5, d: 1.5, rng: 55, radarA: 40, cost: 5, eta: 24, msl: 4, salvo: 2, mdmg: 22, mname: 'NSM' });
@@ -288,8 +296,11 @@ ma('su57', 'PACT', 'Su-57 Felon wing', 'fighter', 1600, 1200, 11, 8, 16, 3, ['ca
 ma('mig31', 'PACT', 'MiG-31 Foxhound wing', 'fighter', 2200, 1100, 8, 3, 11, 1, ['cap']);
 ma('tu22m', 'PACT', 'Tu-22M3 Backfire regiment', 'bomber', 1500, 2400, 0, 13, 13, 1, ['strike', 'cas'], { nuke: true });
 ma('tu160', 'PACT', 'Tu-160 Blackjack regiment', 'bomber', 1500, 3500, 0, 16, 18, 3, ['strike', 'cas'], { nuke: true });
-ma('a50', 'PACT', 'A-50U Mainstay AEW', 'awacs', 650, 1400, 0, 0, 9, 1, ['awacs'], { radar: 400 });
+ma('r_il76', 'PACT', 'Il-76 transport', 'transport', 560, 2000, 0, 0, 6, 1, ['lift'], { lift: 1, note: 'Air-lifts one ground unit anywhere in range.' });
+ma('a50', 'PACT', 'A-50U Mainstay AEW', 'awacs', 650, 1400, 0, 0, 9, 1, ['awacs'], { radar: 400, eye: 300 });
 ma('orion', 'PACT', 'Orion / Forpost drone wing', 'recon', 200, 1000, 0, 3, 5, 1, ['recon', 'cas']);
+ms('r_sealift', 'PACT', 'Merchant sealift ship', 'transport', 33, { d: 1, lift: 3, cost: 6, eta: 24 });
+ms('r_ropucha', 'PACT', 'Ropucha-class landing ship', 'amphib', 40, { d: 3, lift: 3, aaP: 2, radarA: 50, cost: 9, eta: 44 });
 ms('r_karakurt', 'PACT', 'Karakurt-class missile corvette (Kalibr)', 'corvette', 74, { sa: 6, d: 2, rng: 110, radarA: 60, cost: 6, eta: 28, msl: 8, salvo: 4, mdmg: 24, mname: 'Kalibr / P-800' });
 ms('r_gorshkov', 'PACT', 'Admiral Gorshkov-class frigate', 'frigate', 59, { sa: 5, d: 3, asw: 4, aaP: 6, shore: 2, rng: 60, radarA: 110, cost: 9, eta: 40, msl: 8, salvo: 4, mdmg: 24, mname: 'Kalibr / Zircon' });
 ms('r_kilo', 'PACT', 'Kilo-class submarine (Kalibr)', 'sub_diesel', 30, { sub: true, sa: 5, d: 2, asw: 1, rng: 40, sight: 12, cost: 7, eta: 48, msl: 4, salvo: 2, mdmg: 22, mname: 'Kalibr' });
@@ -325,7 +336,7 @@ var OOB_M = {
       [23.2, 53.1, 'm_abrams'], [22.6, 53.4, 'm_leo'], [21.6, 53.6, 'm_puma'], [20.6, 53.8, 'm_stryker'], [21.0, 52.2, 'm_abrams'], [23.6, 51.9, 'm_puma'], [22.6, 51.2, 'm_leo'], [22.0, 50.0, 'm_stryker'],
       [19.5, 52.0, 'm_leo'], [18.6, 54.2, 'm_inf'], [16.9, 52.4, 'm_abrams'], [17.0, 51.1, 'm_puma'], [14.5, 53.4, 'm_leo'], [13.4, 52.5, 'm_chall'],
       [24.1, 52.8, 'm_recon'], [25.0, 55.0, 'm_recon'], [24.4, 57.3, 'm_recon'], [22.3, 53.0, 'm_fpv'], [23.6, 54.3, 'm_fpv'], [25.7, 54.6, 'm_fpv'], [24.6, 56.4, 'm_fpv'],
-      [23.0, 53.3, 'm_pzh'], [22.4, 53.9, 'm_pzh'], [24.4, 54.9, 'm_pzh'], [25.2, 54.2, 'm_pzh'], [24.2, 56.6, 'm_pzh'], [25.9, 58.3, 'm_pzh'], [21.4, 52.6, 'm_pzh'], [22.0, 51.6, 'm_pzh'], [23.4, 52.4, 'm_pzh'],
+      [23.0, 53.3, 'm_pzh'], [22.4, 53.9, 'm_pzh'], [24.4, 54.9, 'm_pzh'], [25.2, 54.2, 'm_pzh'], [24.2, 56.6, 'm_pzh'], [25.9, 58.3, 'm_pzh'], [23.6, 53.0, 'm_m777', 2], [24.8, 55.2, 'm_m777'], [25.4, 56.4, 'm_m777'], [22.6, 52.0, 'm_m777'], [21.4, 52.6, 'm_pzh'], [22.0, 51.6, 'm_pzh'], [23.4, 52.4, 'm_pzh'],
       [22.6, 52.9, 'm_himars'], [24.7, 54.9, 'm_himars'], [24.9, 56.9, 'm_himars'], [22.0, 52.0, 'm_himars'], [25.5, 59.0, 'm_himars'],
       [21.0, 52.1, 'm_pat'], [23.3, 52.3, 'm_pat'], [24.7, 54.8, 'm_iris'], [24.1, 56.8, 'm_iris'], [23.2, 53.0, 'm_shorad'], [25.2, 54.3, 'm_shorad'], [24.7, 59.3, 'm_iris'], [18.7, 54.3, 'm_pat'],
       [22.5, 53.2, 'm_boxer'], [24.0, 54.6, 'm_boxer'], [21.3, 52.6, 'm_boxer'], [25.1, 55.2, 'm_boxer'],
@@ -334,7 +345,7 @@ var OOB_M = {
     ],
     air: [
       [21.0, 52.17, 'typhoon', 2], [21.9, 50.1, 'f35', 2], [20.9, 52.3, 'f16', 2], [18.5, 54.4, 'gripen'], [23.1, 53.1, 'f16'], [16.9, 52.4, 'f35'], [23.3, 54.9, 'typhoon'], [21.0, 56.4, 'f15e'], [24.9, 59.3, 'typhoon'],
-      [11.0, 49.5, 'f15e'], [0.5, 52.4, 'm_b52'], [-1.2, 51.9, 'm_b1'], [14.2, 52.0, 'e7'], [8.6, 50.0, 'kc46'], [21.8, 50.1, 'mq9'], [22.9, 52.9, 'rq4'], [23.3, 51.2, 'a10'], [13.3, 51.8, 'rafale'], [10.2, 53.0, 'typhoon']
+      [11.0, 49.5, 'f15e'], [0.5, 52.4, 'm_b52'], [-1.2, 51.9, 'm_b1'], [14.2, 52.0, 'e7'], [8.6, 50.0, 'kc46'], [8.7, 50.0, 'm_c130'], [14.3, 52.1, 'e2d'], [21.8, 50.1, 'mq9'], [22.9, 52.9, 'rq4'], [23.3, 51.2, 'a10'], [13.3, 51.8, 'rafale'], [10.2, 53.0, 'typhoon']
     ]
   },
   PACT: {
@@ -353,15 +364,23 @@ var OOB_M = {
     ],
     air: [
       [27.5, 53.86, 'su35', 2], [26.1, 53.1, 'su34', 2], [23.7, 53.7, 'su35'], [20.6, 54.9, 'su34'], [20.5, 54.7, 'mig31'], [28.3, 57.8, 'su35'], [30.5, 53.2, 'su34'], [29.8, 55.3, 'mig31'],
-      [31.0, 52.4, 'tu22m', 2], [34.4, 53.3, 'su34'], [32.0, 54.8, 'su35'], [28.0, 53.9, 'a50'], [25.0, 53.0, 'orion'], [26.0, 54.5, 'orion'], [30.3, 59.9, 'su35']
+      [31.0, 52.4, 'tu22m', 2], [34.4, 53.3, 'su34'], [32.0, 54.8, 'su35'], [28.0, 53.9, 'a50'], [29.0, 53.5, 'r_il76'], [25.0, 53.0, 'orion'], [26.0, 54.5, 'orion'], [30.3, 59.9, 'su35']
     ]
   }
 };
 var NAVY_M = {
-  NATO: [[18.9, 54.9, 'm_burke'], [19.5, 55.5, 'm_fremm'], [19.0, 55.7, 'm_fremm'], [17.5, 55.5, 'm_visby', 2], [22.5, 57.0, 'm_visby'], [18.2, 56.2, 'm_astute'], [23.0, 58.5, 'm_fremm'], [20.0, 56.3, 'm_burke']],
-  PACT: [[19.7, 55.0, 'r_gorshkov'], [20.2, 55.2, 'r_karakurt', 2], [19.4, 54.8, 'r_karakurt'], [20.0, 55.0, 'r_kilo'], [28.6, 59.9, 'r_karakurt'], [29.5, 60.0, 'r_gorshkov'], [28.0, 59.8, 'r_kilo']]
+  NATO: [[18.9, 54.9, 'm_burke'], [19.5, 55.5, 'm_fremm'], [19.0, 55.7, 'm_fremm'], [17.5, 55.5, 'm_visby', 2], [22.5, 57.0, 'm_visby'], [18.2, 56.2, 'm_astute'], [14.0, 54.0, 'm_roro', 2], [23.0, 58.5, 'm_fremm'], [20.0, 56.3, 'm_burke']],
+  PACT: [[19.7, 55.0, 'r_gorshkov'], [20.2, 55.2, 'r_karakurt', 2], [19.4, 54.8, 'r_karakurt'], [20.0, 55.0, 'r_kilo'], [28.6, 59.9, 'r_karakurt'], [29.5, 60.0, 'r_gorshkov'], [28.0, 59.8, 'r_kilo'], [28.5, 59.9, 'r_sealift', 2]]
 };
 
+// every aircraft carries something to shoot with: bombers have defensive guns, strike jets a couple of missiles, drones/AEW at least a token
+Object.keys(U).forEach(function (k) {
+  var d = U[k]; if (!d.air) return;
+  if (d.cls === 'bomber' && !(d.a2a > 0)) d.a2a = 1;
+  if (d.cls === 'strike' && d.a2a < 2) d.a2a = 2;
+  if (d.cls === 'recon' && !(d.a2a > 0)) d.a2a = 0.5;
+  if ((d.cls === 'awacs' || d.cls === 'tanker' || d.cls === 'transport') && !(d.a2a > 0)) d.a2a = 0.2;
+});
 function unitsFor(side, tier) { return Object.keys(U).filter(function (k) { return U[k].side === side && U[k].tier <= tier && (U[k].era === ERA || U[k].era === 'b'); }); }
 var OTHER = { NATO: 'PACT', PACT: 'NATO' };
 var OWN = { 1: 'NATO', 2: 'PACT', 3: 'NEUT', 0: null };
@@ -390,7 +409,7 @@ var OOB = {
       [7.6, 49.4, 'train'], [7.3, 51.0, 'train'], [8.6, 50.0, 'convoy'], [8.0, 51.4, 'convoy'], [11.0, 49.5, 'convoy']
     ],
     air: [
-      [7.6, 49.44, 'f4', 2], [6.7, 49.97, 'f4', 2], [6.56, 49.95, 'f4'], [7.26, 49.95, 'f104'], [7.4, 49.21, 'rf4'], [8.57, 50.03, 'kc135'], [6.1, 51.2, 'jag', 2], [6.14, 51.6, 'jag'], [6.04, 50.96, 'f104', 2],
+      [7.6, 49.44, 'f4', 2], [6.7, 49.97, 'f4', 2], [6.56, 49.95, 'f4'], [7.26, 49.95, 'f104'], [7.4, 49.21, 'rf4'], [8.57, 50.03, 'kc135'], [8.6, 50.0, 'c130'], [-0.5, 53.1, 'e2'], [-1.2, 51.8, 'c130'], [6.1, 51.2, 'jag', 2], [6.14, 51.6, 'jag'], [6.04, 50.96, 'f104', 2],
       [7.8, 50.9, 'f104'], [11.0, 49.5, 'a7'], [9.2, 49.9, 'f104'], [10.3, 53.0, 'f104'], [9.6, 54.4, 'f104'], [11.6, 48.2, 'f4'], [-1.25, 51.93, 'f111', 2], [0.56, 52.41, 'f4'], [0.48, 52.36, 'kc135'],
       [10.27, 45.43, 'f104'], [-0.52, 53.17, 'vulcan'], [12.6, 46.03, 'f4'], [-0.5, 53.0, 'ec121']
     ]
@@ -417,7 +436,7 @@ var OOB = {
       [12.7, 53.3, 'mig21'], [13.6, 51.4, 'mig23'], [11.9, 51.4, 'su7'], [12.0, 50.9, 'mig21'],
       [16.97, 52.33, 'su7'], [15.8, 53.8, 'mig21', 2], [21.6, 52.2, 'mig21'], [17.9, 53.0, 'mig23'], [15.74, 50.01, 'mig21'], [14.54, 50.12, 'mig23'], [13.57, 50.37, 'su7'], [14.6, 49.9, 'su17'],
       [19.75, 46.9, 'mig21'], [19.26, 47.37, 'su7'], [26.1, 44.5, 'mig21'], [23.4, 42.7, 'mig21'], [24.0, 54.0, 'mig23'], [27.5, 53.9, 'mig23'], [30.5, 50.4, 'mig23'],
-      [31.0, 52.4, 'su24'], [33.0, 53.0, 'tu16'], [31.0, 51.5, 'tu22'], [27.5, 54.5, 'tu16'], [30.0, 50.0, 'mig25'], [13.0, 52.5, 'tu126']
+      [31.0, 52.4, 'su24'], [30.5, 52.0, 'an12'], [33.0, 53.0, 'tu16'], [31.0, 51.5, 'tu22'], [27.5, 54.5, 'tu16'], [30.0, 50.0, 'mig25'], [13.0, 52.5, 'tu126']
     ]
   }
 };
@@ -484,7 +503,7 @@ function newGame(opts, mapObj) {
   });
   // second echelon and garrisons: reserves behind the front, around the big rear cities
   ['NATO', 'PACT'].forEach(function (side) {
-    var pool = era === 'm' ? (side === 'NATO' ? ['m_inf', 'm_inf', 'm_puma', 'm_leo', 'm_abrams', 'm_pzh', 'm_stryker', 'm_fpv'] : ['r_t72', 'r_t72', 'r_t90', 'r_vdv', 'r_msta', 'r_lancet', 'r_t72']) : side === 'NATO' ? ['inf', 'inf', 'mech', 'armor', 'inf', 'mortar', 'arty', 'armor'] : ['mot', 'mot', 'tank', 'mot', 'pmortar', 'vdv', 'party'], left = era === 'm' ? (side === 'NATO' ? 20 : 48) : side === 'NATO' ? 22 : 30, foe = OTHER[side];
+    var pool = era === 'm' ? (side === 'NATO' ? ['m_inf', 'm_inf', 'm_puma', 'm_leo', 'm_abrams', 'm_pzh', 'm_m777', 'm_stryker', 'm_fpv'] : ['r_t72', 'r_t72', 'r_t90', 'r_vdv', 'r_msta', 'r_lancet', 'r_t72']) : side === 'NATO' ? ['inf', 'inf', 'mech', 'armor', 'inf', 'mortar', 'arty', 'armor'] : ['mot', 'mot', 'tank', 'mot', 'pmortar', 'vdv', 'party'], left = era === 'm' ? (side === 'NATO' ? 20 : 48) : side === 'NATO' ? 22 : 30, foe = OTHER[side];
     pool = pool.filter(function (k) { return U[k]; });
     var fronts = st.units.filter(function (u) { return u.side === foe && U[u.type].ground && !U[u.type].heli && !U[u.type].naval; });
     var cand = [];
@@ -596,6 +615,7 @@ function checkCmd(st, u, d, cmd) {
   if (d.air) {
     if (u.broken) return '';
     if (k === 'land' || k === 'rtb') return '';
+    if (k === 'lift') { if (!d.lift) return 'Not a transport aircraft.'; var lu0 = unitById(st, cmd.uid); if (!lu0 || lu0.side !== u.side || !U[lu0.type].ground || U[lu0.type].heli || U[lu0.type].naval || ['train', 'convoy'].indexOf(U[lu0.type].cls) >= 0) return 'Pick a friendly ground unit to air-lift.'; return ''; }
     if (['cas', 'strike', 'recon', 'cap', 'awacs', 'loiter'].indexOf(k) < 0) return 'Aircraft take mission orders: ground attack, strike, patrol, recon, or land.';
     if ((d.roles || []).indexOf(k === 'loiter' ? 'cas' : k) < 0 && !(k === 'cap' && (d.roles || []).indexOf('cap') >= 0)) return d.n + ' cannot fly that mission.';
     var rt = routeLen(u, cmd), back = 1e9, rangeEff = d.rad * rangeBonus(st, u);
@@ -624,7 +644,7 @@ function checkCmd(st, u, d, cmd) {
   if (k === 'mine') { if (d.cls !== 'eng') return 'Only engineers lay mines.'; if (cmd.x == null) { cmd.x = u.x; cmd.y = u.y; cmd.here = true; } if (!isLand(cmd.x, cmd.y)) return 'That is water.'; return ''; }
   if (k === 'repair' && d.cls !== 'eng') return 'Only engineers repair.';
   if (k === 'merge') {
-    var mu = unitById(st, cmd.uid); if (!mu || mu.side !== u.side || mu.id === u.id || mu.str <= 0 || mu.cargoed || mu.type !== u.type) return 'Tap another unit of the same type to merge into.';
+    var mu = unitById(st, cmd.uid); if (!mu || mu.side !== u.side || mu.id === u.id || mu.str <= 0 || mu.cargoed || !canMerge(u, mu)) return 'Tap another friendly vehicle of the same kind (ground with ground, ships with ships) to merge into.';
     cmd.x = mu.x; cmd.y = mu.y; return '';
   }
   if (k === 'move' || k === 'amove') {
@@ -642,7 +662,7 @@ function sensorsFor(st, side) {
     if (u.side !== side || u.str <= 0) return;
     var d = U[u.type];
     if (d.air) {
-      if (u.state === 'fly') s.push({ x: u.x, y: u.y, g: d.cls === 'recon' ? 55 : 22, a: d.radar || (d.cls === 'recon' ? 90 : 60), r: d.radar || 0 });
+      if (u.state === 'fly') s.push({ x: u.x, y: u.y, g: d.eye || (d.cls === 'recon' ? 55 : 22), a: d.eye ? Math.max(d.eye, d.radar || 0) : (d.radar || (d.cls === 'recon' ? 90 : 60)), r: d.radar || 0 });
       else s.push({ x: u.x, y: u.y, g: 8, a: 0, r: 0 });
     } else if (d.heli) s.push({ x: u.x, y: u.y, g: u.state === 'fly' ? 22 : 16, a: 20, r: 0 });
     else if (d.naval) s.push({ x: u.x, y: u.y, g: d.sight, a: d.radarA || 0, r: 0, w: d.asw ? d.asw * 6 : (d.sub ? 10 : 0), listen: d.sight * 1.6, nv: 1 });
@@ -708,6 +728,15 @@ function uhist(st, u, m) {
   if (!u) return; u.hist = u.hist || []; var last = u.hist[u.hist.length - 1];
   if (last && last.m.slice(0, 14) === m.slice(0, 14) && st.t - last.t < 40) { last.m = m; last.t = st.t; return; }
   u.hist.push({ t: st.t, m: m }); if (u.hist.length > 50) u.hist.shift();
+}
+function statusOf(u) {
+  var d = U[u.type]; if (!d) return '';
+  if (u.cargoed) return 'Aboard a carrier';
+  if (d.air || d.heli) { if (u.state === 'fly') return 'In the air'; return 'On the ground'; }
+  var o = u.orders && u.orders[0], mv = o && (['move', 'amove', 'hunt', 'haul', 'merge', 'board', 'bombard', 'lift', 'mine'].indexOf(o.k) >= 0) && ((u.path && u.path.length) || d.naval);
+  if (u.hidden) return 'Still (hidden)';
+  if (u.bt > 0 && !mv) return 'Fighting';
+  return mv ? (d.naval ? 'Sailing' : 'Moving') : (d.naval ? 'At anchor' : 'Still');
 }
 function orderWord(o) { return ({ move: 'Move', amove: 'Attack-move', hunt: 'Hunt', hold: 'Hold', dig: 'Dig in', haul: 'Haul supplies', cas: 'Ground attack', strike: 'Strike', recon: 'Recon', loiter: 'Circle & attack', cap: 'Patrol', awacs: 'AWACS station', land: 'Land', lift: 'Lift troops', bombard: 'Bombard', airstrike: 'Carrier strike', fire: 'Artillery barrage', wait: 'Wait', board: 'Board carrier', unload: 'Unload troops', ambush: 'Ambush', mine: 'Lay mines', laying: 'Laying mines', repair: 'Repair nearby units', merge: 'Merge' })[o.k] || o.k; }
 function artyFire(st, u, o, dt) {
@@ -799,7 +828,7 @@ function moveGround(st, u, dt) {
     if (!u.path || !u.path.length || dist(u.pathT ? u.pathT.x : 0, u.pathT ? u.pathT.y : 0, tx, ty) > 14) { u.path = findPath('g', u.x, u.y, tx, ty); u.pathT = { x: tx, y: ty }; if (!u.path) { u.orders.shift(); return; } }
   } else if (o.k === 'board' || o.k === 'merge') {
     var tg = unitById(st, o.uid);
-    if (!tg || tg.str <= 0 || tg.cargoed || tg.side !== u.side || (o.k === 'merge' && tg.type !== u.type) || (o.k === 'board' && tg.bt > 0)) { u.orders.shift(); u.path = null; ev(st, 'idle', d.n.split(' (')[0] + ': cannot ' + o.k + ' any more.', u.x, u.y); return; }
+    if (!tg || tg.str <= 0 || tg.cargoed || tg.side !== u.side || (o.k === 'merge' && !canMerge(u, tg)) || (o.k === 'board' && tg.bt > 0)) { u.orders.shift(); u.path = null; ev(st, 'idle', d.n.split(' (')[0] + ': cannot ' + o.k + ' any more.', u.x, u.y); return; }
     if (dist(u.x, u.y, tg.x, tg.y) < 6) { if (o.k === 'board') boardOn(st, u, tg); else mergeInto(st, u, tg); return; }
     tx = tg.x; ty = tg.y;
     if (!u.path || !u.path.length || dist(u.pathT ? u.pathT.x : 0, u.pathT ? u.pathT.y : 0, tx, ty) > 10) { u.path = findPath('g', u.x, u.y, tx, ty); u.pathT = { x: tx, y: ty }; if (!u.path) { u.orders.shift(); ev(st, 'idle', d.n.split(' (')[0] + ': no route.', u.x, u.y); return; } }
@@ -862,9 +891,12 @@ function ridersStep(st) {
     c.riders.forEach(function (id) { var r = unitById(st, id); r.x = c.x; r.y = c.y; });
   });
 }
+function mergeGrp(x) { var d = U[x.type]; if (!d || d.air || d.heli) return ''; if (d.naval) return 'n'; if (d.ground && ['train', 'convoy'].indexOf(d.cls) < 0) return 'g'; return ''; }
+function canMerge(a, b) { var g = mergeGrp(a); return !!g && g === mergeGrp(b); }
 function mergeInto(st, u, t) {
-  t.str = Math.min(100, t.str + u.str * 0.9); t.mor = (t.mor + u.mor) / 2; t.sup = Math.min(100, (t.sup + u.sup) / 2 + 5); t.kills = (t.kills || 0) + (u.kills || 0);
-  uhist(st, t, 'Merged with another ' + U[u.type].n.split(' (')[0] + ' (strength ' + Math.round(t.str) + '%).');
+  var cr = Math.min(1, Math.max(0.25, (U[u.type].cost || 5) / (U[t.type].cost || 5)));   // a cheap unit adds less to a costly one
+  t.str = Math.min(100, t.str + u.str * 0.9 * cr); t.mor = (t.mor + u.mor) / 2; t.sup = Math.min(100, (t.sup + u.sup) / 2 + 5); t.kills = (t.kills || 0) + (u.kills || 0);
+  uhist(st, t, 'Merged with ' + U[u.type].n.split(' (')[0] + ' (strength ' + Math.round(t.str) + '%).');
   if (u.side === st.side) ev(st, 'info', U[u.type].n.split(' (')[0] + ' merged into another unit.', t.x, t.y);
   u.str = 0; u.dead = true; u.orders = [];   // a merge is not a loss
 }
@@ -953,7 +985,7 @@ function navalStep(st, dt) {
   var ships = st.units.filter(function (u) { return U[u.type].naval && u.str > 0; });
   if (!ships.length) return;
   ships.forEach(function (u) { moveShip(st, u, dt); });
-  navalCombat(st, dt, ships);
+  navalCombat(st, dt, ships); seaControl(st, dt, ships);
   ships.forEach(function (u) { if (u.cl && u.cl.length) u.cl.forEach(function (id) { var c = unitById(st, id); if (c) { c.x = u.x; c.y = u.y; } }); });
 }
 function shipFollow(st, u, d, dt) {
@@ -1024,6 +1056,18 @@ function moveShip(st, u, dt) {
   if (!u.path) { u.path = findPath('n', u.x, u.y, o.x, o.y); if (!u.path) { u.orders.shift(); ev(st, 'idle', d.n + ': no sea route.', u.x, u.y); return; } }
   if (shipFollow(st, u, d, dt)) { u.orders.shift(); u.path = null; if (!u.orders.length && u.side === st.side) ev(st, 'idle', d.n + ' has arrived.', u.x, u.y); }
 }
+function fireMissilesGround(st, a, e) {
+  var da = U[a.type], de = U[e.type], n = Math.min(Math.floor(a.msl), da.salvo || 2), hits = 0;
+  a.msl -= n; a.mslT = st.t + 14; a.bt = 60; if (da.sub) a.reveal = st.t + 40;
+  var pk = 0.75 / (1 + 0.18 * (de.cls === 'aa' ? 2 : 0));
+  for (var i = 0; i < n; i++) { if (rnd(st) < pk) hits++; st.fx.push({ k: 'shell', x0: a.x, y0: a.y, x1: e.x + rr(st, -1, 1), y1: e.y + rr(st, -1, 1), t: st.t, s: a.side, m: 1 }); }
+  var soft = (de.cls === 'train' || de.cls === 'convoy' || de.cls === 'eng' || de.cls === 'arty' || de.cls === 'ssm' || de.cls === 'aa') ? 1.6 : 1;
+  var dm = dmul(st, a) * hits * (da.mdmg || 22) * 0.55 * soft / (de.d * (e.dig > 0 ? 1 + 0.3 * e.dig : 1) + 1.5);
+  e.str -= dm; e.mor -= dm * 0.6; e.bt = 60; e.hit = st.t;
+  uhist(st, a, 'Fired ' + n + ' ' + (da.mname || 'missiles') + ' at ' + de.n.split(' (')[0] + ' ashore (' + hits + ' hits, ' + Math.floor(a.msl) + ' left).');
+  if (e.side === st.side && st.set.pause.battle) ev(st, 'battle', de.n + ' hit by ship missiles', e.x, e.y);
+  if (e.str <= 6) { a.kills = (a.kills || 0) + 1; killUnit(st, e, a.side); }
+}
 function fireMissiles(st, a, b) {
   var da = U[a.type], db = U[b.type], n = Math.min(Math.floor(a.msl), da.salvo || 2), hits = 0;
   a.msl -= n; a.mslT = st.t + 14; a.bt = 60; if (da.sub) a.reveal = st.t + 40;
@@ -1039,8 +1083,25 @@ function fireMissiles(st, a, b) {
   if (b.side === st.side) { logm(st, msg, 'bad'); if (st.set.pause.battle) ev(st, 'battle', db.n + ' hit by missiles', b.x, b.y); } else if (a.side === st.side) logm(st, msg, hits ? 'good' : '');
   if (b.str <= 5) { killUnit(st, b, a.side); if (a.side === st.side) logm(st, db.n + ' sunk by missiles.', 'good'); else logm(st, da.n + ' sank ' + db.n + '.', 'bad'); }
 }
+// sea control: a fleet that dominates the waters off a port city blockades it (stocks and infrastructure bleed)
+function seaControl(st, dt, ships) {
+  st.sct = (st.sct || 0) + dt; if (st.sct < 30) return; var el = st.sct; st.sct = 0;
+  for (var i = 0; i < MAP.cities.length; i++) {
+    var cd = st.cd[i], C = MAP.cities[i]; if (cd.o !== 'NATO' && cd.o !== 'PACT') continue;
+    var mine = 0, foe = 0;
+    ships.forEach(function (b) {
+      var db = U[b.type]; if (b.str <= 0 || db.sub || !(db.sa > 0 || db.msl || db.cvw)) return;
+      if (dist(b.x, b.y, C[1], C[2]) > 38) return; var pw = (db.sa || 1) * (b.str / 100) + (db.cvw ? 4 : 0);
+      if (b.side === cd.o) mine += pw; else foe += pw;
+    });
+    if (foe > 3 && foe > mine * 1.5) {
+      cd.stk = Math.max(0, cd.stk - foe * 0.8 * el / 60); cd.inf = Math.max(0, cd.inf - foe * 0.12 * el / 60);
+      if (!cd.blk || st.t - cd.blk > 240) { cd.blk = st.t; if (cd.o === st.side) ev(st, 'info', C[0] + ' is blockaded by enemy ships.', C[1], C[2]); }
+    }
+  }
+}
 function navalCombat(st, dt, ships) {
-  var K = 14, hr = dt / 60, con;
+  var K = 22, hr = dt / 60, con;
   ships.forEach(function (a) {
     if (a.str <= 0) return; var da = U[a.type];
     con = st.con[a.side];
@@ -1055,6 +1116,11 @@ function navalCombat(st, dt, ships) {
           var c0 = con[b.id]; if (dd > da.rng || dd >= md || !(c0 && c0.lv === 'id')) return; md = dd; mt = b;
         });
         if (mt) fireMissiles(st, a, mt);
+        else if (!(a.bt > 0) || (a.stance || 'aggr') === 'aggr') {   // land attack: no ship in reach, so missiles go at an identified enemy unit ashore
+          var gt = null, gd = Math.min(da.rng, 80) * 0.85;
+          st.units.forEach(function (e) { if (e.side === a.side || e.str <= 0 || e.cargoed || e.hidden) return; var de = U[e.type]; if (!de.ground || de.heli || de.air || de.naval) return; var q = dist(a.x, a.y, e.x, e.y), c1 = con[e.id]; if (q < gd && c1 && c1.lv === 'id') { gd = q; gt = e; } });
+          if (gt) fireMissilesGround(st, a, gt);
+        }
       }
     }
     var sa = da.msl ? (a.msl >= 1 ? 0 : da.sa * 0.25) : da.sa, rngS = (da.msl && a.msl < 1) ? Math.min(da.rng, 12) : da.rng;
@@ -1076,15 +1142,20 @@ function navalCombat(st, dt, ships) {
         if (best.str <= 5) { killUnit(st, best, a.side); if (a.side === st.side) logm(st, U[best.type].n + ' sunk by ' + da.n + '.', 'good'); else logm(st, da.n + ' sank ' + U[best.type].n + '.', 'bad'); }
       }
     }
-    // ---- shore bombardment
-    var o = a.orders[0];
+    // ---- shore bombardment (ordered, or automatic at the nearest enemy on the coast when nothing else is going on)
+    var o = a.orders[0], auto = false;
+    if (!(o && o.k === 'bombard') && da.shore > 0 && stN === 'aggr' && !da.sub && !da.cvw) {
+      var an = null, ad = Math.min(da.rng, 20) * 0.8;
+      st.units.forEach(function (e) { if (e.side === a.side || e.str <= 0 || e.cargoed || e.hidden) return; var de = U[e.type]; if (!de.ground || de.heli || de.air || de.naval) return; var q = dist(a.x, a.y, e.x, e.y); if (q < ad) { ad = q; an = e; } });
+      if (an) { o = { k: 'bombard', x: an.x, y: an.y }; auto = true; }
+    }
     if (o && o.k === 'bombard' && da.shore > 0 && dist(a.x, a.y, o.x, o.y) <= da.rng) {
       var tg = [];
       st.units.forEach(function (e) { if (e.side === a.side || e.str <= 0 || e.cargoed || U[e.type].air || U[e.type].heli || U[e.type].naval) return; var dd = dist(e.x, e.y, o.x, o.y); if (dd < 7) tg.push({ e: e, d: dd }); });
       tg.sort(function (x, y) { return x.d - y.d; });
       tg.slice(0, 3).forEach(function (t, i) {
         var e = t.e, ed = U[e.type], soft = (ed.cls === 'train' || ed.cls === 'convoy' || ed.cls === 'arty' || ed.cls === 'aa' || ed.cls === 'eng') ? 1.5 : 1;
-        var dm = da.shore * (a.str / 100) * supF(a) * hr * 2.1 * soft * (i ? 0.6 : 1) / (ed.d * (e.dig > 0 ? 1 + 0.4 * e.dig : 1) + 2) * rr(st, 0.7, 1.3);
+        var dm = da.shore * (a.str / 100) * supF(a) * hr * 3.2 * (auto ? 0.6 : 1) * soft * (i ? 0.6 : 1) / (ed.d * (e.dig > 0 ? 1 + 0.4 * e.dig : 1) + 2) * rr(st, 0.7, 1.3);
         e.str -= dm; e.mor -= dm * 0.6; e.bt = 60; if (e.side === st.side) ev(st, 'battle', ed.n + ' under naval fire', e.x, e.y);
         if (e.str <= 6) killUnit(st, e, a.side);
       });
@@ -1114,8 +1185,8 @@ function killUnit(st, u, by) {
   if (u.str > 0) u.str = 0; u.dead = true;
   st.stats.lost[u.side]++; if (by) st.stats.kills[by]++;
   var d = U[u.type];
-  if (!d.air && d.cls !== 'train' && d.cls !== 'convoy') st.will[u.side] -= d.cls === 'gnd' ? 0.4 : d.cls === 'carrier' ? 1.6 : d.naval ? 0.2 : 0.1;
-  if (by && (d.cls === 'gnd' || d.cls === 'carrier')) st.wins[by] += d.cls === 'carrier' ? 1 : 0.5;
+  if (!d.air && d.cls !== 'train' && d.cls !== 'convoy') st.will[u.side] -= d.cls === 'gnd' ? 0.4 : d.cls === 'carrier' ? 3 : d.naval ? 0.3 + (d.cost || 4) * 0.09 : 0.1;
+  if (by && (d.cls === 'gnd' || d.cls === 'carrier' || d.naval)) { st.wins[by] += d.cls === 'carrier' ? 1 : d.naval ? 0.15 + (d.cost || 4) * 0.04 : 0.5; if (d.naval) st.will[by] += 0.1 + (d.cost || 4) * 0.03; }
   if (d.naval && u.cl && u.cl.length) u.cl.forEach(function (id) { var c = unitById(st, id); if (c) { c.str = 0; c.dead = true; st.stats.lost[c.side]++; } });
   if (u.riders && u.riders.length) {   // the crew and passengers of a destroyed carrier: half bail out and fight on
     u.riders.forEach(function (id) {
@@ -1140,7 +1211,7 @@ function combat(st, dt) {
     var d = U[u.type]; if (!d.ground || d.heli) return;
     var isArty = d.cls === 'arty', stance = u.stance || 'aggr';
     var R = isArty ? d.rng : (stance === 'aggr' ? Math.max(9, zoneR(u)) : 9);
-    var canFire = d.a > 0 && (d.cls === 'gnd' || d.cls === 'recon' || isArty);
+    var canFire = d.a > 0 && (d.cls === 'gnd' || d.cls === 'recon' || d.cls === 'aa' || isArty);
     if (!canFire) return;
     if (stance === 'neut') return;                                             // neutral: never opens fire by itself
     if (stance === 'pass' && !(st.t - (u.hit || -1e9) < 30)) return;          // passive: only shoots back after being attacked
@@ -1150,13 +1221,13 @@ function combat(st, dt) {
       if (e.side === u.side || e.str <= 0 || e.hidden) return; var dd = dist(u.x, u.y, e.x, e.y); if (dd <= R) tg.push([dd, e]);
     });
     if (!tg.length) return;
-    if (moving && !isArty) return;
+    var mvF = moving && !isArty ? 0.5 : 1;   // a column on the move still shoots back, just not as well
     tg.sort(function (a, b) { return a[0] - b[0]; });
     if (u.hidden && tg[0][0] > 4) return;   // an ambusher waits for the enemy to come close
     if (u.hidden) { var b0 = tg[0][1]; u.hidden = false; u.amb = 0; u.ambT = st.t + 45; uhist(st, u, 'Sprang an ambush on ' + U[b0.type].n.split(' (')[0] + '.'); if (u.side === st.side) ev(st, 'info', 'Ambush sprung near ' + placeName(u.x, u.y) + '.', u.x, u.y); }
     var nT = (stance === 'aggr' && !isArty) ? Math.min(4, tg.length) : 1, share = nT > 1 ? Math.min(1.6, 1 + 0.2 * (nT - 1)) / nT : 1;   // aggressive: fires at everything in its circle
     var base = dmul(st, u) * d.a * (u.str / 100) * supF(u) * morF(u);
-    if (isArty) base *= 0.9;
+    if (isArty) base *= 0.9; if (d.cls === 'aa') base *= 0.6; base *= mvF;
     for (var ti = 0; ti < nT; ti++) {
       var best = tg[ti][1];
       var ed = U[best.type], defv = ed.d * (best.dig > 0 ? 1 + 0.45 * best.dig : 1) * (ownCityNear(st, best.side, best.x, best.y, 7) ? 1.25 : 1);
@@ -1273,7 +1344,39 @@ function zoneStep(st, dt) {
       if ((b === 1 || b === 2) && b !== code && dist((x + .5) * G.cell, (y + .5) * G.cell, u.x, u.y) <= R) { G.bloc[k] = code; st.bchg[k] = code; changed = true; }
     }
   });
+  st.et = (st.et || 0) + 15;
+  if (st.et >= 30 && !st.deploy) { st.et = 0; if (fillEnclaves(st)) changed = true; }
   if (changed) st.blocV = ++BV;
+}
+// cut-off pockets: a connected patch of one side's colour, ringed (>=85% of its land border) by the other side,
+// with none of its own ground units or cities inside, takes the colour of the land around it.
+function fillEnclaves(st) {
+  var W = G.w, N = G.n, lab = new Int32Array(N), any = false, cid = 0, B = G.bloc, nb = [1, -1, W, -W];
+  st.bchg = st.bchg || {};
+  var gu = st.units.filter(function (u) { return u.str > 0 && !u.cargoed && U[u.type].ground && !U[u.type].heli && !U[u.type].naval && u.state !== 'fly'; });
+  var cityAt = {}; for (var i = 0; i < MAP.cities.length; i++) { var C = MAP.cities[i]; cityAt[Math.floor(C[2] / G.cell) * W + Math.floor(C[1] / G.cell)] = i; }
+  for (var s0 = 0; s0 < N; s0++) {
+    var code = B[s0]; if ((code !== 1 && code !== 2) || lab[s0]) continue;
+    var comp = [s0], qi = 0, other = 0, my = ++cid; lab[s0] = my; var hold = false, side = code === 1 ? 'NATO' : 'PACT';
+    while (qi < comp.length) {
+      var k = comp[qi++], x = k % W;
+      if (cityAt[k] != null && st.cd[cityAt[k]].o === side) hold = true;
+      for (var j = 0; j < 4; j++) {
+        if (j === 0 && x === W - 1) continue; if (j === 1 && x === 0) continue;
+        var m = k + nb[j]; if (m < 0 || m >= N) continue;
+        if (B[m] === code) { if (!lab[m]) { lab[m] = my; comp.push(m); } } else if (B[m] === 3 - code) other++;
+      }
+      if (comp.length > 2500) { hold = true; }   // big region: never an enclave
+    }
+    if (hold) continue;
+    // total land border incl. neutral/sea doesn't count; require the other side to hold nearly all non-sea border
+    var ring = 0; comp.forEach(function (k2) { for (var j2 = 0; j2 < 4; j2++) { var m2 = k2 + nb[j2]; if (m2 >= 0 && m2 < N && B[m2] !== code && B[m2] !== 0 && B[m2] !== 3 - code) ring++; } });
+    if (other < 4 || other < 0.85 * (other + ring)) continue;
+    var inside = gu.some(function (u) { return u.side === side && lab[Math.floor(u.y / G.cell) * W + Math.floor(u.x / G.cell)] === my; });
+    if (inside) continue;
+    comp.forEach(function (k3) { B[k3] = 3 - code; st.bchg[k3] = 3 - code; }); any = true;
+  }
+  return any;
 }
 // ---- statistics: expected damage (percent of the target's strength) at full strength/supply/morale, open ground, no digging in
 function dmul(st, u) { var m = st.dmgMul && st.dmgMul[u.type]; return m == null ? 1 : m; }
@@ -1288,7 +1391,11 @@ function dmgInfo(aid, tid, mul) {
   if (eg && a.cls === 'arty' && a.a > 0) { var sb = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'aa' || e.cls === 'arty') ? 1.5 : 1; r.barrage = 10 * a.a * 1.6 * sb / (e.d + 2); }
   if (eg && a.cls === 'ssm' && a.cdmg) { var sm = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'aa' || e.cls === 'arty' || e.cls === 'ssm') ? 1.7 : 1; r.missile = a.cdmg * sm / (e.d + 1.5); }
   if ((eg || en) && (a.air || a.heli) && a.a2g > 0 && (a.roles ? a.roles.indexOf('cas') >= 0 : a.heli)) { var sl = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'arty' || e.cls === 'ssm' || e.cls === 'aa') ? 1.6 : 1; if (eg) r.loiter = a.a2g * 0.16 * 60 * sl / (e.d + 2); }
+  if (eg && a.naval && a.msl) { var sg = (e.cls === 'train' || e.cls === 'convoy' || e.cls === 'eng' || e.cls === 'arty' || e.cls === 'ssm' || e.cls === 'aa') ? 1.6 : 1; r.shipland = (a.salvo || 2) * 0.75 * (a.mdmg || 22) * 0.55 * sg / (e.d + 1.5); }
   if (en && a.naval && a.msl) { var pk = 0.8 / (1 + 0.22 * (e.aaP || 0)); r.salvo = (a.salvo || 2) * pk * (a.mdmg || 22) / (1 + 0.12 * Math.max(0, e.d - 3)); }
+  if (a.air && e.air && (a.a2a || 0) > 0) { var pa0 = a.a2a, pb0 = e.a2a || 0.3; r.dogfight = 26 * pa0 / (pa0 + pb0 + 1) * 0.75 * 20 * 0.35; }
+  if (a.air && (a.a2a || 0) >= 2 && (e.air || e.heli)) r.parked = 55 * 2 * 0.85;   // two missiles on an aircraft parked on the ground
+  if ((a.cls === 'aa' || (a.naval && a.aaP > 0)) && (e.air || e.heli)) r.shotdown = (a.aaP || 3) * 0.5 * 0.75 * 20 * (e.heli ? 1 : 1 / 1);
   if (mul != null && mul !== 1) for (var kk in r) r[kk] *= mul;
   return r;
 }
@@ -1391,7 +1498,7 @@ function landAt(st, u, spot) {
   u.x = spot.x; u.y = spot.y; u.fuel = d.rad * 2 * rangeBonus(st, u); u.rdy = st.t + (TURN[d.cls] || 3) * 60 * (spot.af != null && spot.af === u.home ? 0.7 : 1);
   if (d.air) { u.state = 'base'; u.base = spot.af; if (u.home == null) u.home = spot.af; }
   else { u.state = 'land'; }
-  u.str = Math.min(100, u.str + 4);
+  u.str = Math.min(100, u.str + 4); u.aam = null;
 }
 function loiterAttack(st, u, o, cx, cy, R, dt) {
   var d = U[u.type], hits = 0, ps = dmul(st, u) * d.a2g * (u.str / 100) * 0.16;
@@ -1457,7 +1564,7 @@ function airStep(st, dt) {
       else if (o.k === 'move' || o.k === 'amove') { u.orders.shift(); u.state = 'land'; if (!u.orders.length) { u.rdy = st.t + 30; } }
       else if (o.k === 'lift') {
         if (o.stage !== 'drop') { var cu2 = unitById(st, o.uid); if (cu2 && dist(cu2.x, cu2.y, u.x, u.y) < 8) { u.cargo = cu2.id; cu2.cargoed = true; cu2.orders = []; cu2.path = null; o.stage = 'drop'; } else { u.orders.shift(); } }
-        else { var cu3 = unitById(st, u.cargo); if (cu3) { cu3.cargoed = false; cu3.x = o.x; cu3.y = o.y; cu3.mor -= 4; } u.cargo = null; u.orders.shift(); u.state = 'land'; }
+        else { var cu3 = unitById(st, u.cargo); if (cu3) { cu3.cargoed = false; cu3.x = o.x; cu3.y = o.y; cu3.mor -= 4; } u.cargo = null; u.orders.shift(); if (!d.air) u.state = 'land'; }
       }
       else u.orders.shift();
     }
@@ -1485,7 +1592,30 @@ function airDefence(st, dt) {
     }
   });
 }
+// fighters on patrol / strike hit parked aircraft with air-to-air missiles: two missiles are enough to kill one
+function parkedKill(st, dt) {
+  st.units.forEach(function (f) {
+    var df = U[f.type]; if (!df.air || !airborne(f) || f.str <= 0 || (df.a2a || 0) < 2) return;
+    var o0 = f.orders[0]; if (!o0 || ['cap', 'loiter', 'cas', 'strike'].indexOf(o0.k) < 0) return;
+    if (f.aam == null) f.aam = 4; if (f.aam < 2 || f.aamT > st.t) return;
+    var best = null, bd = 16;
+    st.units.forEach(function (e) {
+      if (e.side === f.side || e.str <= 0 || e.cargoed) return; var de = U[e.type]; if (!(de.air || de.heli) || !(e.state === 'base' || e.state === 'land')) return;
+      var dd = dist(f.x, f.y, e.x, e.y); if (dd < bd) { bd = dd; best = e; }
+    });
+    if (!best) return;
+    f.aam -= 2; f.aamT = st.t + 8;
+    var cover = 0; for (var i = 0; i < MAP.air.length; i++) if (st.ad[i].o === best.side && dist(MAP.air[i][2], MAP.air[i][3], best.x, best.y) < 14) cover = 0.6 + MAP.air[i][5] * 0.5;
+    var hits = 0; for (var m = 0; m < 2; m++) if (rnd(st) < 0.85 * (f.str / 100) / (1 + 0.25 * cover)) hits++;
+    if (!hits) return;
+    best.str -= 55 * hits; best.hit = st.t;
+    uhist(st, f, 'Missiles on parked ' + U[best.type].n.split(' (')[0] + '.');
+    if (best.str <= 5) { best.str = 0; best.dead = true; st.stats.lost[best.side]++; st.stats.kills[f.side]++; f.kills = (f.kills || 0) + 1; if (best.side === st.side) ev(st, 'lost', U[best.type].n + ' destroyed on the ground.', best.x, best.y); }
+    else if (best.side === st.side) ev(st, 'battle', U[best.type].n + ' hit on the ground', best.x, best.y);
+  });
+}
 function airCombat(st, dt) {
+  parkedKill(st, dt);
   var fl = st.units.filter(function (u) { return airborne(u) && u.str > 0 && U[u.type].air; });
   var N = fl.filter(function (u) { return u.side === 'NATO'; }), P = fl.filter(function (u) { return u.side === 'PACT'; });
   N.forEach(function (a) {
@@ -1898,7 +2028,7 @@ function startWar(st) { st.deploy = false; st.spd = 1; }
 
 var API = { VERSION: VERSION, initMap: initMap, newGame: newGame, advance: advance, step: step, issue: issue, buy: buy, cancelBuy: cancelBuy, polAct: polAct, polOptions: polOptions, nukeOptions: nukeOptions, nukeAct: nukeAct,
   nukeTarget: nukeTarget, deliveryFor: deliveryFor, propose: propose, deployMove: deployMove, startWar: startWar, unitById: unitById, unitsFor: unitsFor, tier: tier, tierPoints: tierPoints, dayOf: dayOf, dateStr: dateStr, vpOf: vpOf, vpShift: vpShift,
-  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, setStance: setStance, dmgInfo: dmgInfo, buyWarhead: buyWarhead, nukeStock: nukeStock, setDmgMul: setDmgMul, getEra: function () { return ERA; }, zoneR: zoneR, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
+  outcomeFor: outcomeFor, findPath: findPath, cellOf: cellOf, isLand: isLand, dist: dist, ll: ll, toLL: toLL, autoSupply: autoSupply, placeName: placeName, ORBIT: ORBIT, orderWord: orderWord, snapLand: snapLand, snapWater: snapWater, refreshBloc: refreshBloc, setStance: setStance, dmgInfo: dmgInfo, buyWarhead: buyWarhead, nukeStock: nukeStock, setDmgMul: setDmgMul, getEra: function () { return ERA; }, zoneR: zoneR, statusOf: statusOf, setEra: setEra, portFor: portFor, rearCity: rearCity, tankersOf: tankersOf, nearestFriendlyLanding: nearestFriendlyLanding,
   UNITS: U, ESC_NAMES: ESC_NAMES, OTHER: OTHER, MAX_DAYS: MAX_DAYS, START_MIN: START_MIN, G: G, POL: POL, rnd: rnd, aiThink: aiThink, railFlood: railFlood, detect: detect, isAir: isAir, isHeli: isHeli, airborne: airborne, inFallout: inFallout, sortieCost: sortieCost, rangeBonus: rangeBonus, killUnit: killUnit, SAM_CD: SAM_CD };
 Object.defineProperty(API, 'MAP', { get: function () { return MAP; } });
 root.U75War = API;
