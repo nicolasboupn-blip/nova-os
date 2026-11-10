@@ -110,6 +110,9 @@ body.widget .closecard,body.widget [data-act=mini],body.full [data-act=mini],bod
 #v3spec b{display:block;font:700 10px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#f0a63a}
 .b3d{flex:0 0 auto;align-self:flex-start;height:30px;padding:0 10px;margin-right:6px;border-radius:8px;border:1px solid #f0a63a;background:rgba(240,166,58,.14);color:#f0a63a;font:700 13px system-ui,sans-serif;letter-spacing:.08em}
 
+.szr{width:100%;margin:4px 0 10px;accent-color:#f0a63a}
+.stage{overflow:hidden}
+
 </style>
 </head>
 <body>
@@ -4720,7 +4723,7 @@ function sizeCanvas() {
   var w = Math.max(10, pn.clientWidth), h = Math.max(10, pn.clientHeight);
   if (w === cw && h === ch) return; cw = w; ch = h; cv.width = w * dpr; cv.height = h * dpr; bg.width = w * dpr; bg.height = h * dpr; bgDirty = true;
 }
-function clampView() { var v = app.view; v.z = clamp(v.z, Math.max(0.12, Math.min(cw / M.W, ch / M.H) * 0.9), 9); v.cx = clamp(v.cx, 0, M.W); v.cy = clamp(v.cy, 0, M.H); }
+function clampView() { var v = app.view; v.z = clamp(v.z, Math.max(0.12, Math.min(cw / M.W, ch / M.H) * 0.9), 600); v.cx = clamp(v.cx, 0, M.W); v.cy = clamp(v.cy, 0, M.H); }
 function centerOn(x, y, z) { app.view.cx = x; app.view.cy = y; if (z) app.view.z = z; clampView(); bgDirty = true; }
 
 function renderBG() {
@@ -4781,6 +4784,14 @@ function drawSym(c, s, x, y, col) {
 var SIDE_COL = { NATO: '#4da3ff', PACT: '#ff5b4a', NEUT: '#aaa' };
 var sprBudget = 0;
 var SPR = {}, HD = {};
+try { var is0 = parseFloat(localStorage.getItem('u75iconS')); app.iconS = isNaN(is0) ? 0.75 : is0; } catch (e) { app.iconS = 0.75; }
+/* icon size in px: slider 0 = true scale of the vehicle on the map (min 6 px), 1 = big and growing with zoom */
+function iconPx(type) {
+  var T = window.U75_3D, id = T && modelFor(type), z = app.view.z, R = 6;
+  if (id) { try { R = T.getModel(id).radius || 6; } catch (e) {} }
+  var big = Math.max(24, Math.min(150, 40 * Math.pow(z / 1.2, 0.7))), real = Math.max(6, Math.min(big, 1.86 * R / 1000 * z)), s = app.iconS;
+  return Math.exp(Math.log(real) + (Math.log(big) - Math.log(real)) * s);
+}
 function spriteOf(type, top) {
   var T = window.U75_3D, id = T && modelFor(type); if (!id) return null;
   var k = type + (top ? ':t' : ':a'); if (SPR[k] !== undefined) return SPR[k];
@@ -4797,15 +4808,21 @@ function drawUnitIcon(c, x, y, u, col, o) {
   if (app.layers.models && !o.sym && app.view.z >= 0.25) {   // 3D model pictures: bird's-eye by default, angled when the map is tilted
     var tl = app.tilt || 0, spT = spriteOf(u.type, true), spA = tl > 0.02 ? spriteOf(u.type, false) : null, spX = spT || spA;
     if (spX) {
-      var S = 40 + 10 * tl, hd = headOf(u); c.save(); c.translate(x, y);
+      var S = iconPx(u.type) * (1 + 0.25 * tl), hd = headOf(u), k = S / 44; c.save(); c.translate(x, y); if (tl > 0.02) c.scale(1, 1 / Math.max(0.45, Math.cos(tl * 58 * Math.PI / 180)));
       if (fly) { c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(4 + 4 * tl, 6 + 8 * tl, 13, 5 + 2 * tl, 0, 0, 7); c.fill(); }
       var rc = o.fade ? 'rgba(20,24,22,.5)' : (u.side === 'NATO' ? 'rgba(40,110,200,.55)' : 'rgba(200,60,50,.55)');
       c.fillStyle = rc; c.strokeStyle = col; c.lineWidth = o.sel ? 2.4 : 1.2; c.beginPath();
-      if (tl > 0.5) c.ellipse(0, 11, 17, 6, 0, 0, 7); else c.arc(0, 0, 19, 0, 7); c.fill(); c.stroke();
+      if (tl > 0.5) c.ellipse(0, S * 0.27, S * 0.42, S * 0.15, 0, 0, 7); else c.arc(0, 0, S * 0.48, 0, 7); c.fill(); c.stroke();
       if (spT && tl < 0.98) { c.save(); c.globalAlpha *= 1 - tl; c.rotate(hd); c.drawImage(spT, -S / 2, -S / 2, S, S); c.restore(); }
       if (spA && tl > 0.02) { c.save(); c.globalAlpha *= tl; c.drawImage(spA, -S / 2, -S / 2 - 3, S, S); c.restore(); }
-      if (o.sel) { c.strokeStyle = '#ffd24a'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, 0, 24, 0, 7); c.stroke(); }
-      if (o.bar != null) { c.fillStyle = '#000'; c.fillRect(-bw / 2, 22, bw, 3); c.fillStyle = o.bar > 60 ? '#6fd08c' : o.bar > 30 ? '#f2b84b' : '#ff6b5b'; c.fillRect(-bw / 2, 22, bw * o.bar / 100, 3); }
+      if (o.bar != null && o.bar < 70 && !o.sym) {   // live damage: smoke, then flames
+        var tm = Date.now() / 260, sev = o.bar < 30 ? 2 : 1;
+        for (var q = 0; q < 3 + sev * 2; q++) { var ph = (tm + q * 1.7) % 4, a0 = 1 - ph / 4; c.fillStyle = 'rgba(' + (q % 2 ? '50,50,50' : '90,90,90') + ',' + (0.5 * a0).toFixed(2) + ')'; c.beginPath(); c.arc(((q * 7) % 9 - 4) * k + ph * 2, -S * 0.1 - ph * 5 * k, (2 + ph * 1.6) * k, 0, 7); c.fill(); }
+        if (sev === 2) for (var q2 = 0; q2 < 3; q2++) { var ph2 = (tm * 1.6 + q2 * 1.3) % 2; c.fillStyle = q2 % 2 ? 'rgba(255,200,60,' + (0.9 - ph2 * 0.4).toFixed(2) + ')' : 'rgba(255,90,30,' + (0.9 - ph2 * 0.4).toFixed(2) + ')'; c.beginPath(); c.arc((q2 - 1) * 4 * k, -ph2 * 6 * k, (3.2 - ph2) * k, 0, 7); c.fill(); }
+      }
+      if (u.hit != null && app.st && app.st.t - u.hit < 20 && !o.fade) { c.strokeStyle = 'rgba(255,120,60,' + (0.8 * (1 - (app.st.t - u.hit) / 20)).toFixed(2) + ')'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, S * (0.55 + 0.15 * ((Date.now() / 200) % 1)), 0, 7); c.stroke(); }
+      if (o.sel) { c.strokeStyle = '#ffd24a'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, 0, S * 0.58, 0, 7); c.stroke(); }
+      if (o.bar != null) { var bwx = Math.max(14, S * 0.6), by = S * 0.55; c.fillStyle = '#000'; c.fillRect(-bwx / 2, by, bwx, 3); c.fillStyle = o.bar > 60 ? '#6fd08c' : o.bar > 30 ? '#f2b84b' : '#ff6b5b'; c.fillRect(-bwx / 2, by, bwx * o.bar / 100, 3); }
       c.restore(); return;
     }
   }
@@ -4851,8 +4868,14 @@ var OMETA = { move: { c: '#7fd0ff', l: 'MOVE HERE', s: 'flag', dash: [1, 0] }, a
   fire: { c: '#ff4a3a', l: 'ARTILLERY BARRAGE', s: 'cross' }, bombard: { c: '#ff9f5b', l: 'SHIP BOMBARDMENT', s: 'cross' }, cap: { c: '#6fd08c', l: 'PATROL (CIRCLES HERE)', s: 'orbit' }, loiter: { c: '#ff9f5b', l: 'CIRCLE & ATTACK (KEEPS HITTING)', s: 'orbit' }, awacs: { c: '#6fd08c', l: 'AWACS ORBIT', s: 'orbit' }, recon: { c: '#b7b7ff', l: 'RECON', s: 'dot' },
   haul: { c: '#f2b84b', l: 'SUPPLY RUN', s: 'dot' }, lift: { c: '#7fd0ff', l: 'LIFT / DROP', s: 'dot' }, land: { c: '#aaaaaa', l: 'LAND HERE', s: 'flag' }, rtb: { c: '#aaaaaa', l: 'RETURN', s: 'flag' } };
 var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', loiter: '#ff9f5b', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
+function applyTilt() {
+  var t = app.tilt || 0; if (!cv) return; var key = t.toFixed(3); if (cv._tk === key) return; cv._tk = key;
+  cv.style.transformOrigin = '50% 78%';
+  cv.style.transform = t > 0.004 ? 'perspective(' + Math.round(cw * 1.5) + 'px) rotateX(' + (t * 58).toFixed(1) + 'deg) scale(' + (1 + 0.95 * t).toFixed(3) + ')' : '';
+  var st = $('stage'); if (st) st.style.background = t > 0.004 ? 'linear-gradient(#27424f 0%,#0a141a 55%)' : '';
+}
 function draw() {
-  sprBudget = 3; app.tilt = (app.tilt || 0) + ((app.tiltT || 0) - (app.tilt || 0)) * 0.22; if (Math.abs((app.tiltT || 0) - app.tilt) < 0.01) app.tilt = app.tiltT || 0; var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
+  sprBudget = 3; app.tilt = (app.tilt || 0) + ((app.tiltT || 0) - (app.tilt || 0)) * 0.22; if (Math.abs((app.tiltT || 0) - app.tilt) < 0.01) app.tilt = app.tiltT || 0; applyTilt(); var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (geo.stRef !== st) { geo.stRef = st; W.refreshBloc(st); }
   if (geo.blocV !== st.blocV && (Date.now() - (geo.blocT || 0) > 600 || geo.stRef2 !== st)) { geo.blocT = Date.now(); geo.stRef2 = st; makeBlocImg(); bgDirty = true; }
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
@@ -4953,7 +4976,7 @@ function draw() {
   }
   // own units
   var small = z < 0.32;
-  ownUnits().forEach(function (u) {
+  ownUnits().sort(function (a, b) { return (app.tilt || 0) > 0.05 ? a.y - b.y : 0; }).forEach(function (u) {
     if (!drawn(u)) return; var d = U[u.type], p = upos(u); if (!on(p)) return; var sel = app.sel.indexOf(u.id) >= 0;
     if (small && !sel && (d.cls === 'arty' || d.cls === 'aa' || d.cls === 'eng' || d.cls === 'convoy' || d.cls === 'train' || d.heli)) return;
     var sc = small ? 0.7 : 1; ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(sc, sc);
@@ -5363,7 +5386,8 @@ function panelManage() {
   h += '<div class="lbl">Time</div><div class="chips">' + SPEEDS.map(function (s, i) { return chip('speed:' + i, i ? '▶ ' + SPEEDN[i] : '⏸ pause', '', app.speed === i); }).join('') + '</div>';
   h += '<div class="lbl">Auto-pause when</div><div class="chips">' + [['contact', 'new contact'], ['battle', 'battle starts'], ['lost', 'unit lost'], ['nuke', 'nuclear event'], ['idle', 'unit idle']].map(function (x) { return chip('ap:' + x[0], x[1], '', st.set.pause[x[0]]); }).join('') + '</div>';
   h += '<div class="lbl">Logistics</div><div class="chips">' + chip('auto', 'AUTO SUPPLY TRAINS ' + (st.set.auto !== false ? 'ON' : 'OFF'), '', st.set.auto !== false) + '</div>';
-  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts'], ['models', '3D unit models'], ['tilt', 'tilted 3D view']].map(function (x) { return chip('layer:' + x[0], x[1], '', x[0] === 'tilt' ? !!app.tiltT : app.layers[x[0]]); }).join('') + '</div>';
+  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts'], ['models', '3D unit models'], ['tilt', 'tilt the map']].map(function (x) { return chip('layer:' + x[0], x[1], '', x[0] === 'tilt' ? !!app.tiltT : app.layers[x[0]]); }).join('') + '</div>';
+  h += '<div class="lbl">Icon size: true scale ◀ ▶ big</div><input type="range" class="szr" min="0" max="100" value="' + Math.round((app.iconS == null ? 0.75 : app.iconS) * 100) + '" data-sz="1">';
   var v = W.vpShift(st), me = st.side;
   h += '<div class="card"><h3>War status</h3><div class="kv"><span>Day</span><span>' + W.dayOf(st) + ' / ' + W.MAX_DAYS + '</span><span>NATO will</span><span>' + Math.round(st.will.NATO) + '</span><span>Pact will</span><span>' + Math.round(st.will.PACT) + '</span><span>Ground gained, NATO</span><span>' + Math.round(v.NATO * 100) + '%</span><span>Ground gained, Pact</span><span>' + Math.round(v.PACT * 100) + '%</span><span>Units lost N/P</span><span>' + st.stats.lost.NATO + ' / ' + st.stats.lost.PACT + '</span></div><p>First to gain 28% of the other side\'s value wins; if will hits zero that side collapses.</p></div>';
   h += '<div class="chips">' + chip('save', 'SAVE') + chip('menu', 'MENU') + chip('cease', 'PROPOSE CEASEFIRE') + '</div>';
@@ -5588,6 +5612,7 @@ document.addEventListener('click', function (ev) {
 
 /* ---------- touch / mouse on the map ---------- */
 var ptrs = {}, drag = null;
+document.addEventListener('input', function (e) { var t = e.target; if (t && t.getAttribute && t.getAttribute('data-sz')) { app.iconS = t.value / 100; try { localStorage.setItem('u75iconS', String(app.iconS)); } catch (x) {} } });
 function bindCanvas() {
   if (!cv) return;
   cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); ptrs[e.pointerId] = { x: e.offsetX, y: e.offsetY, sx: e.offsetX, sy: e.offsetY, t: Date.now() }; drag = { moved: false, cx: app.view.cx, cy: app.view.cy, n: Object.keys(ptrs).length, d0: pinchDist(), z0: app.view.z }; });

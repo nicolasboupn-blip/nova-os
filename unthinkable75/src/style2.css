@@ -92,3 +92,6 @@ body.widget .closecard,body.widget [data-act=mini],body.full [data-act=mini],bod
 #v3spec{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:2px 12px;font-size:12px;max-height:64px;overflow-y:auto}
 #v3spec b{display:block;font:700 10px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#f0a63a}
 .b3d{flex:0 0 auto;align-self:flex-start;height:30px;padding:0 10px;margin-right:6px;border-radius:8px;border:1px solid #f0a63a;background:rgba(240,166,58,.14);color:#f0a63a;font:700 13px system-ui,sans-serif;letter-spacing:.08em}
+
+.szr{width:100%;margin:4px 0 10px;accent-color:#f0a63a}
+.stage{overflow:hidden}
