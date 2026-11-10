@@ -190,6 +190,7 @@ function drawSym(c, s, x, y, col) {
 var SIDE_COL = { NATO: '#4da3ff', PACT: '#ff5b4a', NEUT: '#aaa' };
 var sprBudget = 0;
 var SPR = {}, HD = {};
+try { app.mstyle = localStorage.getItem('u75ms') || 'live'; } catch (e) { app.mstyle = 'live'; }
 try { var is0 = parseFloat(localStorage.getItem('u75iconS')); app.iconS = isNaN(is0) ? 0.75 : is0; } catch (e) { app.iconS = 0.75; }
 /* icon size in px: slider 0 = true scale of the vehicle on the map (min 6 px), 1 = big and growing with zoom */
 function iconPx(type) {
@@ -211,9 +212,9 @@ function headOf(u) {   // direction of travel, kept while standing still
 }
 function drawUnitIcon(c, x, y, u, col, o) {
   o = o || {}; var d = U[u.type], bw = 22, bh = 15, fly = o.fly;
-  if (app.layers.models && !o.sym && app.view.z >= 0.25) {   // 3D model pictures: bird's-eye by default, angled when the map is tilted
+  if (app.mstyle === 'pics' && !o.sym && app.view.z >= 0.25) {   // 3D model pictures: bird's-eye by default, angled when the map is tilted
     var tl = app.tilt || 0, spT = spriteOf(u.type, true), spA = tl > 0.02 ? spriteOf(u.type, false) : null, spX = spT || spA;
-    var mid = modelFor(u.type), useGL = LIVE && c === ctx && mid && liveOK !== false;
+    var mid = modelFor(u.type), useGL = LIVE && !o.sym && c === ctx && mid && liveOK !== false;
     if (useGL) {
       var S0 = iconPx(u.type), tm = c.getTransform(), g0 = (o.fade ? 0.5 : 1), sk = tm.a / dpr;
       LIVE.push({ id: mid, x: tm.e / dpr + x * sk, y: tm.f / dpr + y * sk, hd: headOf(u), px: S0 * sk * 0.95, lift: fly ? S0 * 0.28 : 0 });
@@ -309,7 +310,7 @@ function flushLive() {
   T.live(glcv, items, { cw: cw, ch: ch, ox: ox, oy: oy, tilt: t * 58 * Math.PI / 180, sc: 1 + 0.95 * t, d: cw * 1.5 }, app.glFlip);
 }
 function draw() {
-  sprBudget = 3; LIVE = (app.layers.models && window.U75_3D && glcv && liveOK !== false) ? [] : null; app.tilt = (app.tilt || 0) + ((app.tiltT || 0) - (app.tilt || 0)) * 0.22; if (Math.abs((app.tiltT || 0) - app.tilt) < 0.01) app.tilt = app.tiltT || 0; applyTilt(); var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
+  sprBudget = 3; LIVE = (app.mstyle === 'live' && window.U75_3D && glcv && liveOK !== false) ? [] : null; app.tilt = (app.tilt || 0) + ((app.tiltT || 0) - (app.tilt || 0)) * 0.22; if (Math.abs((app.tiltT || 0) - app.tilt) < 0.01) app.tilt = app.tiltT || 0; applyTilt(); var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (geo.stRef !== st) { geo.stRef = st; W.refreshBloc(st); }
   if (geo.blocV !== st.blocV && (Date.now() - (geo.blocT || 0) > 600 || geo.stRef2 !== st)) { geo.blocT = Date.now(); geo.stRef2 = st; makeBlocImg(); bgDirty = true; }
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
@@ -821,7 +822,8 @@ function panelManage() {
   h += '<div class="lbl">Time</div><div class="chips">' + SPEEDS.map(function (s, i) { return chip('speed:' + i, i ? '▶ ' + SPEEDN[i] : '⏸ pause', '', app.speed === i); }).join('') + '</div>';
   h += '<div class="lbl">Auto-pause when</div><div class="chips">' + [['contact', 'new contact'], ['battle', 'battle starts'], ['lost', 'unit lost'], ['nuke', 'nuclear event'], ['idle', 'unit idle']].map(function (x) { return chip('ap:' + x[0], x[1], '', st.set.pause[x[0]]); }).join('') + '</div>';
   h += '<div class="lbl">Logistics</div><div class="chips">' + chip('auto', 'AUTO SUPPLY TRAINS ' + (st.set.auto !== false ? 'ON' : 'OFF'), '', st.set.auto !== false) + '</div>';
-  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts'], ['models', '3D unit models'], ['tilt', 'tilt the map']].map(function (x) { return chip('layer:' + x[0], x[1], '', x[0] === 'tilt' ? !!app.tiltT : app.layers[x[0]]); }).join('') + '</div>';
+  h += '<div class="lbl">Unit look</div><div class="chips">' + [['live', 'live 3D models'], ['pics', '3D pictures'], ['sym', 'old symbols']].map(function (m) { return chip('mstyle:' + m[0], m[1], '', app.mstyle === m[0]); }).join('') + '</div>';
+  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts'], ['tilt', 'tilt the map']].map(function (x) { return chip('layer:' + x[0], x[1], '', x[0] === 'tilt' ? !!app.tiltT : app.layers[x[0]]); }).join('') + '</div>';
   h += '<div class="lbl">Icon size: true scale ◀ ▶ big</div><input type="range" class="szr" min="0" max="100" value="' + Math.round((app.iconS == null ? 0.75 : app.iconS) * 100) + '" data-sz="1">';
   var v = W.vpShift(st), me = st.side;
   h += '<div class="card"><h3>War status</h3><div class="kv"><span>Day</span><span>' + W.dayOf(st) + ' / ' + W.MAX_DAYS + '</span><span>NATO will</span><span>' + Math.round(st.will.NATO) + '</span><span>Pact will</span><span>' + Math.round(st.will.PACT) + '</span><span>Ground gained, NATO</span><span>' + Math.round(v.NATO * 100) + '%</span><span>Ground gained, Pact</span><span>' + Math.round(v.PACT * 100) + '%</span><span>Units lost N/P</span><span>' + st.stats.lost.NATO + ' / ' + st.stats.lost.PACT + '</span></div><p>First to gain 28% of the other side\'s value wins; if will hits zero that side collapses.</p></div>';
@@ -989,6 +991,7 @@ document.addEventListener('click', function (ev) {
     case 'bg': app.bg = !app.bg; try { localStorage.setItem('u75bg', app.bg ? '1' : '0'); } catch (e) {} bgLast = Date.now(); toast(app.bg ? '⏱ Keep-playing ON: the war runs at your current speed while you do other things.' : '⏱ Keep-playing OFF: the war pauses when you leave.'); paintTop(); return;
     case 'speed': if (st && !st.deploy) { app.speed = +arg; paintTop(); renderDock(true); } return;
     case 'ap': st.set.pause[arg] = !st.set.pause[arg]; renderDock(true); return;
+    case 'mstyle': app.mstyle = arg; try { localStorage.setItem('u75ms', arg); } catch (e) {} bgDirty = true; renderDock(true); return;
     case 'layer': if (arg === 'tilt') { app.tiltT = app.tiltT ? 0 : 1; renderDock(true); return; } app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
     case 'stance': { var nS = W.setStance(st, app.sel, arg); toast(nS + (nS === 1 ? ' unit' : ' units') + ' set to ' + ({ aggr: 'aggressive', pass: 'passive', neut: 'neutral' }[arg])); renderDock(true); return; }
     case 'utab': app.utab = arg; renderDock(true); return;
