@@ -57,7 +57,9 @@ const a = put(spare('NATO', 'm_inf', 3), 16.0, 52.5), b = put(spare('NATO', 'm_i
 r = W.issue(st, [a.id], { k: 'merge', uid: b.id }); W.advance(st, 30);
 ok(a.dead && b.str > 85, 'merge: units of the same type combine (target now ' + Math.round(b.str) + '%)');
 r = W.issue(st, [spare('NATO', 'm_leo', 1).id], { k: 'merge', uid: spare('NATO', 'm_inf', 5).id });
-ok(r.ok === 0, 'merge refuses different types');
+ok(r.ok === 1, 'merge now works across ground vehicle classes');
+r = W.issue(st, [spare('NATO', 'm_leo', 6).id], { k: 'merge', uid: st.units.find(u => u.side === 'NATO' && W.UNITS[u.type].air).id });
+ok(r.ok === 0, 'merge refuses aircraft');
 // ---- ambush
 const amb = put(spare('NATO', 'm_leo', 2), 15.0, 52.0);
 W.issue(st, [amb.id], { k: 'ambush' }); W.advance(st, 45); ok(amb.hidden === true, 'ambush: unit conceals itself after a while');
