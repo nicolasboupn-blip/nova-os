@@ -26,6 +26,30 @@ var SPEEDN = ['pause', 'x1 real time', 'x15', 'x60 (1 min/s)', 'x300', 'x900', '
 var TOPSPD = [[0, '⏸'], [1, '1×'], [3, '60×'], [5, '900×'], [7, '⏩']];
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+/* ---------- 3D model viewer overlay (engine + models in models3d.js) ---------- */
+var V3ALIAS = { vdv: 'mtlb', r_vdv: 'mtlb' };   // paratroopers ride in MT-LBs in 3D
+var v3ok = false;
+function modelFor(type) { var T = window.U75_3D; if (!T) return null; if (T.MAP[type]) return T.MAP[type]; var a = V3ALIAS[type]; return a && T.REG[a] ? a : null; }
+function open3d(type) {
+  var T = window.U75_3D, id = modelFor(type); if (!T) { toast('3D engine missing.'); return; } if (!id) { toast('No 3D model for this unit yet.'); return; }
+  var el = document.getElementById('v3d');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'v3d';
+    el.innerHTML = '<canvas id="v3c"></canvas><div class="v3top"><div class="v3n"><b id="v3nm"></b><span id="v3sub"></span></div><button data-a="v3env" id="v3env">dusk</button><button data-a="v3x" aria-label="Close 3D view">✕</button></div><div class="v3hint">Drag to orbit · pinch to zoom · double-tap resets</div><div class="v3bot"><div id="v3acts"></div><div id="v3spec"></div></div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = 'block';
+  if (!v3ok) { try { v3ok = T.App.init(document.getElementById('v3c')); } catch (e) { v3ok = false; } if (!v3ok) { el.style.display = 'none'; toast('3D needs WebGL, which this device does not offer.'); return; }
+    T.App.updateUI = function () {
+      var d = T.App.def, m = T.App.model; $('v3nm').textContent = d.name; $('v3sub').textContent = d.side + ' · ' + d.cat + ' · ' + d.era;
+      var sp = $('v3spec'); sp.innerHTML = ''; for (var k in d.spec) { if (k === 'Note') continue; var c = document.createElement('div'); c.innerHTML = '<b>' + k + '</b><span>' + d.spec[k] + '</span>'; sp.appendChild(c); }
+      var ac = $('v3acts'); ac.innerHTML = ''; var pf = T.PROFILES[d.fx], list = pf ? pf(m) : [];
+      list.concat([{ label: 'Reset', run: function () { T.App.setModel(d.id); } }]).forEach(function (a, i) { var b = document.createElement('button'); b.className = i && i === list.length ? 'sec' : ''; b.textContent = a.label; b.onclick = function () { if (a.label !== 'Reset' && T.App.t - (T.App.lastAct || -9) < .3) return; T.App.lastAct = T.App.t; a.run(); }; ac.appendChild(b); });
+    };
+  }
+  T.App.off = false; T.App.auto = true; T.App.setModel(id);
+}
+function close3d() { var el = document.getElementById('v3d'); if (el) el.style.display = 'none'; if (window.U75_3D) window.U75_3D.App.off = true; }
 function toast(t) { app.toast = t; app.toastT = Date.now() + 3200; paintToast(); }
 
 /* ---------- static map data prepared once ---------- */
@@ -545,7 +569,7 @@ function unitHead(su) {
   var h = '';
   if (su.length === 1) {
     var u = su[0], d = U[u.type];
-    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + W.statusOf(u) + ' · ' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">' + ({ aggr: '🔥 Aggressive', pass: '🛡 Passive', neut: '🕊 Neutral' }[u.stance || 'aggr']) + ' · Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + (u.riders && u.riders.length ? '<div class="s">Carrying: ' + u.riders.map(function (id) { var r = W.unitById(app.st, id); return r ? esc(U[r.type].n.split(' (')[0]) : ''; }).join(', ') + '</div>' : (d.carry ? '<div class="s">Carrier: holds ' + d.carry + ' infantry unit. Infantry: BOARD, then tap this unit.</div>' : '')) + '</div><div class="bars">' +
+    h += '<div class="uhead">' + icoFor(u.type, u.side) + '<div class="g"><div class="n">' + esc(d.n) + '</div><div class="s">' + W.statusOf(u) + ' · ' + orderText(u) + (etaText(u) ? ' · ' + etaText(u) : '') + '</div>' + (W.zoneR(u) ? '<div class="s">' + ({ aggr: '🔥 Aggressive', pass: '🛡 Passive', neut: '🕊 Neutral' }[u.stance || 'aggr']) + ' · Zone ' + Math.round(W.zoneR(u)) + ' km: takes the land inside when no enemy is in it</div>' : '') + (u.riders && u.riders.length ? '<div class="s">Carrying: ' + u.riders.map(function (id) { var r = W.unitById(app.st, id); return r ? esc(U[r.type].n.split(' (')[0]) : ''; }).join(', ') + '</div>' : (d.carry ? '<div class="s">Carrier: holds ' + d.carry + ' infantry unit. Infantry: BOARD, then tap this unit.</div>' : '')) + '</div>' + (modelFor(u.type) ? '<button class="b3d" data-a="v3d:' + u.type + '" aria-label="3D view">3D</button>' : '') + '<div class="bars">' +
       '<span>STR</span>' + bar(u.str, u.str > 60 ? '' : u.str > 30 ? 'w' : 'r') + '<span>SUPPLY</span>' + bar(u.sup, u.sup > 40 ? '' : u.sup > 15 ? 'w' : 'r') + '<span>MORALE</span>' + bar(u.mor, u.mor > 50 ? '' : u.mor > 25 ? 'w' : 'r') + (d.air ? '<span>FUEL</span>' + bar(u.fuel / (d.rad * 2) * 100, 'c') : '') + (d.msl ? '<span>' + esc(d.mname || 'MISSILES').toUpperCase() + ' ' + Math.floor(u.msl) + '/' + d.msl + '</span>' + bar(u.msl / d.msl * 100, u.msl >= 1 ? 'c' : 'r') : '') + '</div></div>';
   } else {
     var types = {}; su.forEach(function (u) { types[U[u.type].n] = (types[U[u.type].n] || 0) + 1; });
@@ -935,6 +959,9 @@ document.addEventListener('click', function (ev) {
     case 'zout': app.view.z /= 1.5; clampView(); bgDirty = true; return;
     case 'home-view': { var f2 = app.st.era === 'm' ? W.ll(23.0, 53.5) : W.ll(9.7, 50.5); centerOn(f2.x, f2.y, 0.55); } return;
     case 'mini': window.U75.setMini(true); return;
+    case 'v3d': open3d(arg); return;
+    case 'v3x': close3d(); return;
+    case 'v3env': var T3 = window.U75_3D, ks = Object.keys(T3.ENVS), i3 = (ks.indexOf(T3.App.envKey) + 1) % ks.length; T3.App.setEnv(ks[i3]); $('v3env').textContent = ks[i3]; return;
   }
   render();
 });

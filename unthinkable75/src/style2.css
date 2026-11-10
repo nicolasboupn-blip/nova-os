@@ -74,3 +74,21 @@ body.widget .closecard,body.widget [data-act=mini],body.full [data-act=mini],bod
 .dr{position:relative;display:flex;justify-content:space-between;gap:10px;margin:3px 0;padding:3px 6px;overflow:hidden;border-radius:6px}.dr i{position:absolute;left:0;top:0;bottom:0;background:rgba(255,140,90,.28);z-index:0}.dr i.x{background:rgba(255,80,80,.28)}.dr .t,.dr .v{position:relative;z-index:1}.dr .v{font-variant-numeric:tabular-nums;font-weight:600}
 
 .mul{font-size:11px;color:#ffcf6b;margin-left:6px;font-weight:700}.sdet.tune .chips{margin-top:6px}
+
+/* 3D viewer overlay */
+#v3d{position:fixed;inset:0;z-index:99;background:#0e1216;display:none;color:#e9eef2}
+#v3c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.v3top{position:absolute;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 0;display:flex;gap:8px;align-items:flex-start;pointer-events:none}
+.v3top>*{pointer-events:auto}
+.v3n{flex:1;min-width:0;background:rgba(14,18,22,.72);border:1px solid #2a343e;border-radius:10px;padding:8px 12px}
+.v3n b{display:block;font:700 18px/1.1 'Barlow Condensed',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;overflow-wrap:anywhere}
+.v3n span{font:600 12px system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8fa0ad}
+.v3top button{min-width:42px;height:42px;border-radius:10px;border:1px solid #2a343e;background:rgba(14,18,22,.8);color:#e9eef2;font:700 14px system-ui,sans-serif;text-transform:uppercase}
+.v3hint{position:absolute;left:0;right:0;bottom:calc(150px + env(safe-area-inset-bottom,0px));text-align:center;font:600 11px system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.55);pointer-events:none}
+.v3bot{position:absolute;left:0;right:0;bottom:0;padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,rgba(14,18,22,.92) 30%);display:flex;flex-direction:column;gap:8px}
+#v3acts{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+#v3acts button{flex:0 0 auto;height:44px;padding:0 18px;border-radius:10px;border:0;background:#f0a63a;color:#14100a;font:700 16px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase}
+#v3acts button.sec{background:#1c242c;color:#e9eef2;border:1px solid #2a343e}
+#v3spec{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:2px 12px;font-size:12px;max-height:64px;overflow-y:auto}
+#v3spec b{display:block;font:700 10px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#f0a63a}
+.b3d{flex:0 0 auto;align-self:flex-start;height:30px;padding:0 10px;margin-right:6px;border-radius:8px;border:1px solid #f0a63a;background:rgba(240,166,58,.14);color:#f0a63a;font:700 13px system-ui,sans-serif;letter-spacing:.08em}
