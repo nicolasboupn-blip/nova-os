@@ -236,7 +236,7 @@ function draw() {
       // area markers: patrol circle, barrage zone
       if (q.k === 'cap' || q.k === 'awacs' || q.k === 'loiter') { var R = (q.k === 'loiter' ? (U[u.type].heli ? W.ORBIT.loiterHeli : W.ORBIT.loiter) : W.ORBIT[q.k]) * z; ctx.beginPath(); ctx.arc(b[0], b[1], R, 0, 7); ctx.fillStyle = 'rgba(111,208,140,.10)'; ctx.fill(); ctx.setLineDash([2, 5]); ctx.lineWidth = 2.4; ctx.strokeStyle = col; ctx.stroke(); ctx.setLineDash([]); for (var k2 = 0; k2 < 3; k2++) { var aa = (Date.now() / 1400 + k2 * 2.09) % 6.283; ctx.beginPath(); ctx.arc(b[0] + Math.cos(aa) * R, b[1] + Math.sin(aa) * R, 3.2, 0, 7); ctx.fillStyle = col; ctx.fill(); } }
       if (q.k === 'fire') { var Rz = Math.max(7, 3.6 * z); ctx.beginPath(); ctx.arc(b[0], b[1], Rz, 0, 7); ctx.fillStyle = 'rgba(255,60,50,.18)'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke(); }
-      if (q.k === 'fire' && qi === 0) { ctx.beginPath(); ctx.arc(a[0], a[1], d.rng * z, 0, 7); ctx.strokeStyle = 'rgba(255,90,70,.55)'; ctx.setLineDash([3, 6]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
+      if (q.k === 'fire' && qi === 0) { ctx.beginPath(); ctx.arc(a[0], a[1], (d.tlr || d.rng) * z, 0, 7); ctx.strokeStyle = 'rgba(255,90,70,.55)'; ctx.setLineDash([3, 6]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
       // marker shape
       ctx.save(); ctx.translate(b[0], b[1]); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2.4;
       if (m.s === 'cross') { ctx.beginPath(); ctx.arc(0, 0, 7, 0, 7); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.moveTo(0, -11); ctx.lineTo(0, 11); ctx.stroke(); }
@@ -283,7 +283,7 @@ function draw() {
       ctx.beginPath(); ctx.arc(pp[0], pp[1], d0.rad * W.rangeBonus(st, u0) * z, 0, 7); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([2, 6]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
     }
   }
-  if (app.pick && app.pick.kind === 'fire') app.sel.forEach(function (id) { var ua = W.unitById(st, id); if (!ua || (U[ua.type].cls !== 'arty' && U[ua.type].cls !== 'ssm')) return; var pa2 = upos(ua); ctx.beginPath(); ctx.arc(pa2[0], pa2[1], U[ua.type].rng * z, 0, 7); ctx.fillStyle = 'rgba(255,70,50,.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,90,70,.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.6; ctx.stroke(); ctx.setLineDash([]); });
+  if (app.pick && app.pick.kind === 'fire') app.sel.forEach(function (id) { var ua = W.unitById(st, id); if (!ua || (U[ua.type].cls !== 'arty' && U[ua.type].cls !== 'ssm' && !U[ua.type].tl)) return; var pa2 = upos(ua); ctx.beginPath(); ctx.arc(pa2[0], pa2[1], U[ua.type].rng * z, 0, 7); ctx.fillStyle = 'rgba(255,70,50,.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,90,70,.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.6; ctx.stroke(); ctx.setLineDash([]); });
   if (app.pick && app.pick.kind === 'nuke' && app.pick.at) { var pn = w2s(app.pick.at.x, app.pick.at.y); ctx.beginPath(); ctx.arc(pn[0], pn[1], app.pick.R * z, 0, 7); ctx.fillStyle = 'rgba(232,255,90,.18)'; ctx.fill(); ctx.strokeStyle = '#e8ff5a'; ctx.lineWidth = 2; ctx.stroke(); }
   // artillery shells (red dots) and craters
   var now = performance.now(), fxs = st.fx || [], ownU = ownUnits();
@@ -405,7 +405,7 @@ function cmdChips(su) {
   if (anyG || anyT) h += chip('pick:move', 'MOVE');
   if (anyN) {
     var nv = su.filter(function (u) { return U[u.type].naval; }).map(function (u) { return U[u.type]; });
-    h += chip('pick:move', 'SAIL TO') + (nv.some(function (d) { return d.sa > 0; }) ? chip('pick:amove', 'PATROL-ATTACK') + chip('pick:hunt', 'HUNT SHIP') : '') + (nv.some(function (d) { return d.shore > 0; }) ? chip('pick:bombard', 'BOMBARD') : '') + (nv.some(function (d) { return d.cvw; }) ? chip('pick:strike', 'CARRIER STRIKE') + chip('pick:cas', 'CARRIER GROUND ATTACK') : '') + (nv.some(function (d) { return d.lift; }) ? chip('pick:sealift1', 'SEALIFT TROOPS') : '') + chip('do:hold', 'HOLD');
+    h += chip('pick:move', 'SAIL TO') + (nv.some(function (d) { return d.sa > 0; }) ? chip('pick:amove', 'PATROL-ATTACK') + chip('pick:hunt', 'HUNT SHIP') : '') + (nv.some(function (d) { return d.shore > 0; }) ? chip('pick:bombard', 'BOMBARD') : '') + (nv.some(function (d) { return d.tl; }) ? chip('pick:fire', '🚀 CRUISE MISSILE STRIKE') + chip('firem', app.fireM ? '⏱ ' + app.fireM + ' min' : '⏱ ∞ UNTIL STOPPED') + chip('cfire', '⛔ CEASE FIRE') : '') + (nv.some(function (d) { return d.cvw; }) ? chip('pick:strike', 'CARRIER STRIKE') + chip('pick:cas', 'CARRIER GROUND ATTACK') : '') + (nv.some(function (d) { return d.lift; }) ? chip('pick:sealift1', 'SEALIFT TROOPS') : '') + chip('do:hold', 'HOLD');
   }
   if (anyAtk) h += chip('pick:amove', 'ATTACK-MOVE') + chip('pick:hunt', 'HUNT');
   if (anyG) h += chip('do:dig', 'DIG IN') + chip('do:hold', 'HOLD');
