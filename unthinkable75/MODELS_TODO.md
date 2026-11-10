@@ -1,3 +1,5 @@
+# DONE: all models below exist in `models/` (see models/README.md, models/gamemap.json). Open `models/index.html#<unit id>`.
+
 # New units / mechanics added by the engine session (please give them models)
 
 Needs a 3D/icon model (ids as in `src/war.js`):
