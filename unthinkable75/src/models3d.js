@@ -1,4 +1,4 @@
-/* 3D model viewer: engine + vehicle models (from models/src, built by the models chat). Exposes window.U75_3D */
+/* 3D model viewer: engine + vehicle models (from models/src, built by make3d.py). Exposes window.U75_3D */
 window.U75_3D = (function () {
 /* ---- a_build.js ---- */
 'use strict';
@@ -534,9 +534,9 @@ void main(){ vec4 t=texture2D(uTex,vUV); float a=t.a*vCol.a; if(a<0.004) discard
 
 /* ===== renderer ===== */
 class Renderer {
-  constructor(canvas) {
+  constructor(canvas, xo) {
     this.cv = canvas;
-    const opt = { antialias: true, stencil: true, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' };
+    const opt = { antialias: true, stencil: true, alpha: !!(xo && xo.alpha), preserveDrawingBuffer: true, powerPreference: 'high-performance' };
     this.gl = canvas.getContext('webgl', opt) || canvas.getContext('experimental-webgl', opt);
     const gl = this.gl; this.ok = !!gl; if (!gl) return;
     gl.getExtension('OES_element_index_uint');
@@ -636,7 +636,7 @@ class Renderer {
   /* scene: {cam, models:[], ents:[], env, ps, water(bool), t} */
   render(sc) {
     const gl = this.gl; this.resize(); const env = sc.env, cam = sc.cam, W = this.W, H = this.H;
-    gl.viewport(0, 0, W, H); gl.clearColor(env.hor[0], env.hor[1], env.hor[2], 1); gl.clearStencil(0);
+    gl.viewport(0, 0, W, H); if (sc.bare) gl.clearColor(0, 0, 0, 0); else gl.clearColor(env.hor[0], env.hor[1], env.hor[2], 1); gl.clearStencil(0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     const asp = W / H, fov = cam.fov, eye = cam.eye(), V = M4.lookAt(eye, cam.tgt, [0, 1, 0]);
     const P = M4.persp(fov, asp, cam.near, cam.far), VP = M4.mul(P, V);
@@ -647,11 +647,11 @@ class Renderer {
     let p = this.pSky; gl.useProgram(p); const fwd = V3.norm(V3.sub(cam.tgt, eye));
     gl.uniform3fv(p.u.uF, fwd); gl.uniform3fv(p.u.uR, this.camRight); gl.uniform3fv(p.u.uU, this.camUp); gl.uniform2f(p.u.uTan, tanY * asp, tanY);
     gl.uniform3fv(p.u.uTop, env.top); gl.uniform3fv(p.u.uHor, env.hor); gl.uniform3fv(p.u.uSun, env.sun); gl.uniform3fv(p.u.uSunCol, env.sunCol);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.sVB); gl.enableVertexAttribArray(p.a.aPos); gl.vertexAttribPointer(p.a.aPos, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (!sc.bare) { gl.bindBuffer(gl.ARRAY_BUFFER, this.sVB); gl.enableVertexAttribArray(p.a.aPos); gl.vertexAttribPointer(p.a.aPos, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLES, 0, 3); }
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
     const R = sc.R || 5, size = R * 16;
     // ground
-    if (!sc.water) {
+    if (!sc.water && !sc.bare) {
       p = this.pGround; gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, VP); gl.uniform1f(p.u.uSize, size); gl.uniform1f(p.u.uPad, R * 1.9);
       gl.uniform3fv(p.u.uC1, env.g1); gl.uniform3fv(p.u.uC2, env.g2); gl.uniform3fv(p.u.uFog, env.hor); gl.uniform3fv(p.u.uCam, eye);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.gVB); gl.enableVertexAttribArray(p.a.aPos); gl.vertexAttribPointer(p.a.aPos, 3, gl.FLOAT, false, 0, 0);
@@ -2374,6 +2374,28 @@ FX.stepTrain = function (m, dt) {
 PROFILES.train = m => { const T = m.train; const L = [{ id: 'roll', label: 'Roll out', run() { if (!T.go) { T.go = true; App.follow = { p: { p: m.fpos || [0, 3, 0] }, until: 1e9, keep: true, off: [0, 2, 0], dist: Math.max(App.R * 1.3, 60) }; m.fpos = m.fpos || [0, 3, 0]; } } }, { id: 'stop', label: 'Brake', run() { T.go = false; } }];
   if (T.kind === 'steam') L.push({ id: 'whistle', label: 'Whistle', run() { T.w = 2.2; App.shake(.15); } }); return L; };
 
+var SP = { cache: {}, rd: undefined, cam: null, ps: null };
+function spriteInit() {
+  if (SP.rd !== undefined) return SP.rd;
+  var cv = document.createElement('canvas'); cv.style.cssText = 'position:fixed;left:-4000px;top:0;width:128px;height:128px;pointer-events:none';
+  document.body.appendChild(cv);
+  try { SP.rd = new Renderer(cv, { alpha: true }); if (!SP.rd.ok) SP.rd = null; } catch (e) { SP.rd = null; }
+  SP.cam = new Cam(); SP.ps = new Particles(); return SP.rd;
+}
+/* small transparent picture of a model (canvas 96x96) for map icons; null when WebGL is missing */
+function sprite(id) {
+  if (SP.cache[id] !== undefined) return SP.cache[id];
+  var rd = spriteInit(); if (!rd) return (SP.cache[id] = null);
+  try {
+    var m = getModel(id); m.resetPose(); m.xf = M4.id(); m.updateWorld();
+    var R = Math.max(m.radius, 1), c = m.center, cam = SP.cam;
+    cam.az = 40; cam.el = 32; cam.tgt = [c[0], c[1], c[2]]; cam.want = cam.tgt.slice(); cam.dist = R * 3.0; cam.near = Math.max(0.05, R * 0.05); cam.far = R * 40; cam.sh = [0, 0, 0];
+    rd.render({ cam: cam, models: [m], ents: [], env: ENVS.day, ps: SP.ps, water: false, t: 0, R: R, flash: 0, toon: true, outline: true, shadows: false, bare: true, outlinePx: 1.8 });
+    var out = document.createElement('canvas'); out.width = out.height = 96; out.getContext('2d').drawImage(rd.cv, 0, 0, rd.cv.width, rd.cv.height, 0, 0, 96, 96);
+    return (SP.cache[id] = out);
+  } catch (e) { return (SP.cache[id] = null); }
+}
+
 var MAP3D = {"m113": "m113", "mech": "m113", "inf": "m113", "mot": "bmp1", "btr": "bmp1", "r_btr": "bmp2", "party": "mtlb", "m_puma": "puma", "m_inf": "cv90", "brdm": "brdm", "recon": "brdm", "m_boxer": "boxer", "m_stryker": "stryker", "m_recon": "fennek", "r_recon": "recon", "cav": "dingo", "m_fpv": "fpv", "arty": "m109", "m_pzh": "m109", "r_msta": "msta", "m_himars": "himars", "r_tornado": "tornado", "r_tos": "tos1", "m_m777": "m777", "mortar": "mortar", "pmortar": "pmortar", "lance": "lance", "pershing": "pershing", "frog": "frog", "scud": "scud", "ss12": "ss12", "r_isk": "iskander", "m_pat": "patriot", "r_s300": "s300", "r_s400": "s400", "aa": "hawk", "paa": "sa6", "r_pantsir": "pantsir", "m_iris": "iris", "m_shorad": "skyranger", "convoy": "convoy", "pconvoy": "pconvoy", "eng": "bridge", "peng": "peng", "train": "train", "ptrain": "ptrain", "f4": "f4", "rf4": "f4", "f104": "f104", "jag": "jag", "a7": "a7", "f111": "f111", "f15": "f15", "mig21": "mig21", "mig23": "mig23", "su7": "su7", "su17": "su17", "su24": "su24", "mig25": "mig25", "typhoon": "typhoon", "f35": "f35", "f16": "f16", "rafale": "rafale", "gripen": "gripen", "f15e": "f15e", "a10": "a10", "su35": "su35", "su34": "su34", "su57": "su57", "mig31": "mig31", "b52": "b52", "m_b52": "b52", "vulcan": "vulcan", "ec121": "ec121", "e3": "e3", "kc135": "kc135", "kc46": "kc46", "e7": "e7", "m_b1": "b1", "tu16": "tu16", "tu22": "tu22", "tu95": "tu95", "tu160": "tu160", "tu22m": "tu22m", "a50": "a50", "tu126": "tu126", "ah1": "ah1", "m_ah64": "ah64", "mi24": "mi24", "r_ka52": "ka52", "r_mi28": "mi28", "mi8": "mi8", "r_mi8": "mi8", "ch47": "ch47", "m_ch47": "ch47", "mq9": "mq9", "rq4": "rq4", "orion": "orion", "r_geran": "geran", "r_lancet": "lancet", "nimitz": "nimitz", "forrestal": "forrestal", "clemenceau": "clemenceau", "arkroyal": "arkroyal", "kiev": "kiev", "m_burke": "m_burke", "m_fremm": "m_fremm", "m_visby": "m_visby", "belknap": "belknap", "adams": "adams", "knox": "knox", "leander": "leander", "type42": "type42", "spruance": "spruance", "tiger": "tiger", "moskva": "moskva", "kara": "kara", "kresta": "kresta", "sverdlov": "sverdlov", "kashin": "kashin", "krivak": "krivak", "riga": "riga", "nanuchka": "nanuchka", "osa": "osa", "r_karakurt": "r_karakurt", "r_gorshkov": "r_gorshkov", "iwojima": "iwojima", "roro": "roro", "m_roro": "roro", "sovtrans": "sovtrans", "r_sealift": "sovtrans", "alligator": "alligator", "ropucha": "ropucha", "r_ropucha": "ropucha", "sturgeon": "sturgeon", "la688": "la688", "m_astute": "m_astute", "type206": "type206", "kobben": "kobben", "victor": "victor", "charlie": "charlie", "foxtrot": "foxtrot", "r_kilo": "r_kilo", "e2": "e2", "e2d": "e2d", "c130": "c130", "m_c130": "m_c130", "an12": "an12", "r_il76": "r_il76", "m_lhd": "wasp", "armor": "m60", "m_leo": "leo2", "m_abrams": "abrams", "m_chall": "chall3", "tank": "t62", "gtank": "t62", "r_t72": "t72", "r_t90": "t90", "r_t14": "t14"};
-return { App: App, REG: REG, ORDER: ORDER, ENVS: ENVS, PROFILES: typeof PROFILES !== 'undefined' ? PROFILES : {}, MAP: MAP3D, getModel: getModel };
+return { App: App, REG: REG, ORDER: ORDER, ENVS: ENVS, PROFILES: typeof PROFILES !== 'undefined' ? PROFILES : {}, MAP: MAP3D, getModel: getModel, sprite: sprite };
 })();

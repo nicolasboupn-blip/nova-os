@@ -19,7 +19,7 @@ function saveSlot() { if (!app.st || !app.slot) return; try { Store.set(slotKey(
 
 /* ---------- app ---------- */
 var app = { screen: 'slots', slot: null, st: null, tab: 'units', sel: [], selNode: null, selCon: null, multi: false, addStop: false, pick: null, setup: { side: 'NATO', diff: 'normal', era: '75' },
-  dock: 1, modal: null, toast: '', toastT: 0, layers: { roads: true, rails: true, air: true, cities: true, cons: true }, view: { cx: 0, cy: 0, z: 0.6 }, capH: 3, mini: false, speed: 0 };
+  dock: 1, modal: null, toast: '', toastT: 0, layers: { models: true, roads: true, rails: true, air: true, cities: true, cons: true }, view: { cx: 0, cy: 0, z: 0.6 }, capH: 3, mini: false, speed: 0 };
 var UTABS = [['move', 'Movement'], ['atk', 'Attacks'], ['trk', 'Tracks'], ['task', 'Tasks'], ['hist', 'History']];
 var SPEEDS = [0, 1 / 60, 0.25, 1, 5, 15, 60, 240, 720];   // game minutes per real second
 var SPEEDN = ['pause', 'x1 real time', 'x15', 'x60 (1 min/s)', 'x300', 'x900', 'x3600 (1 h/s)', '4 h/s', '12 h/s'];
@@ -187,8 +187,29 @@ function drawSym(c, s, x, y, col) {
   else { c.font = 'bold 9px ui-monospace,monospace'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, x, y + 0.5); }
 }
 var SIDE_COL = { NATO: '#4da3ff', PACT: '#ff5b4a', NEUT: '#aaa' };
+var sprBudget = 0;
+function spriteOf(type) {
+  var T = window.U75_3D, id = T && modelFor(type); if (!id) return null;
+  var c = T.sprite.cache ? null : null; if (!window.__spr) window.__spr = {}; var S = window.__spr;
+  if (S[type] !== undefined) return S[type];
+  if (sprBudget <= 0) return null; sprBudget--;
+  return (S[type] = T.sprite(id));
+}
 function drawUnitIcon(c, x, y, u, col, o) {
   o = o || {}; var d = U[u.type], bw = 22, bh = 15, fly = o.fly;
+  if (app.layers.models && !o.sym && app.view.z >= 0.25) {   // 3D model picture instead of the flat symbol
+    var sp = spriteOf(u.type);
+    if (sp) {
+      var S = 44; c.save(); c.translate(x, y);
+      if (fly) { c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(3, 14, 14, 5, 0, 0, 7); c.fill(); }
+      c.fillStyle = o.fade ? 'rgba(20,24,22,.55)' : (u.side === 'NATO' ? 'rgba(40,110,200,.6)' : 'rgba(200,60,50,.6)');
+      c.beginPath(); c.ellipse(0, 12, 17, 6, 0, 0, 7); c.fill(); c.strokeStyle = col; c.lineWidth = o.sel ? 2.4 : 1.2; c.stroke();
+      c.drawImage(sp, -S / 2, -S / 2 - 3, S, S);
+      if (o.sel) { c.strokeStyle = '#ffd24a'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, -2, 24, 0, 7); c.stroke(); }
+      if (o.bar != null) { c.fillStyle = '#000'; c.fillRect(-bw / 2, 20, bw, 3); c.fillStyle = o.bar > 60 ? '#6fd08c' : o.bar > 30 ? '#f2b84b' : '#ff6b5b'; c.fillRect(-bw / 2, 20, bw * o.bar / 100, 3); }
+      c.restore(); return;
+    }
+  }
   c.save(); c.translate(x, y);
   if (fly) { c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(-bw / 2 + 2, -bh / 2 + 3, bw, bh); }
   c.fillStyle = o.fade ? 'rgba(20,24,22,.7)' : (u.side === 'NATO' ? 'rgba(14,36,64,.95)' : 'rgba(64,22,18,.95)');
@@ -232,7 +253,7 @@ var OMETA = { move: { c: '#7fd0ff', l: 'MOVE HERE', s: 'flag', dash: [1, 0] }, a
   haul: { c: '#f2b84b', l: 'SUPPLY RUN', s: 'dot' }, lift: { c: '#7fd0ff', l: 'LIFT / DROP', s: 'dot' }, land: { c: '#aaaaaa', l: 'LAND HERE', s: 'flag' }, rtb: { c: '#aaaaaa', l: 'RETURN', s: 'flag' } };
 var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', loiter: '#ff9f5b', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
 function draw() {
-  var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
+  sprBudget = 3; var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (geo.stRef !== st) { geo.stRef = st; W.refreshBloc(st); }
   if (geo.blocV !== st.blocV && (Date.now() - (geo.blocT || 0) > 600 || geo.stRef2 !== st)) { geo.blocT = Date.now(); geo.stRef2 = st; makeBlocImg(); bgDirty = true; }
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
@@ -743,7 +764,7 @@ function panelManage() {
   h += '<div class="lbl">Time</div><div class="chips">' + SPEEDS.map(function (s, i) { return chip('speed:' + i, i ? '▶ ' + SPEEDN[i] : '⏸ pause', '', app.speed === i); }).join('') + '</div>';
   h += '<div class="lbl">Auto-pause when</div><div class="chips">' + [['contact', 'new contact'], ['battle', 'battle starts'], ['lost', 'unit lost'], ['nuke', 'nuclear event'], ['idle', 'unit idle']].map(function (x) { return chip('ap:' + x[0], x[1], '', st.set.pause[x[0]]); }).join('') + '</div>';
   h += '<div class="lbl">Logistics</div><div class="chips">' + chip('auto', 'AUTO SUPPLY TRAINS ' + (st.set.auto !== false ? 'ON' : 'OFF'), '', st.set.auto !== false) + '</div>';
-  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts']].map(function (x) { return chip('layer:' + x[0], x[1], '', app.layers[x[0]]); }).join('') + '</div>';
+  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts'], ['models', '3D unit models']].map(function (x) { return chip('layer:' + x[0], x[1], '', app.layers[x[0]]); }).join('') + '</div>';
   var v = W.vpShift(st), me = st.side;
   h += '<div class="card"><h3>War status</h3><div class="kv"><span>Day</span><span>' + W.dayOf(st) + ' / ' + W.MAX_DAYS + '</span><span>NATO will</span><span>' + Math.round(st.will.NATO) + '</span><span>Pact will</span><span>' + Math.round(st.will.PACT) + '</span><span>Ground gained, NATO</span><span>' + Math.round(v.NATO * 100) + '%</span><span>Ground gained, Pact</span><span>' + Math.round(v.PACT * 100) + '%</span><span>Units lost N/P</span><span>' + st.stats.lost.NATO + ' / ' + st.stats.lost.PACT + '</span></div><p>First to gain 28% of the other side\'s value wins; if will hits zero that side collapses.</p></div>';
   h += '<div class="chips">' + chip('save', 'SAVE') + chip('menu', 'MENU') + chip('cease', 'PROPOSE CEASEFIRE') + '</div>';
