@@ -95,3 +95,5 @@ body.widget .closecard,body.widget [data-act=mini],body.full [data-act=mini],bod
 
 .szr{width:100%;margin:4px 0 10px;accent-color:#f0a63a}
 .stage{overflow:hidden}
+
+.stage canvas.glmap{pointer-events:none}

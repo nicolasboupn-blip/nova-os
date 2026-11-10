@@ -120,7 +120,8 @@ function w2s(x, y) { var v = app.view; return [(x - v.cx) * v.z + cw / 2, (y - v
 function s2w(sx, sy) { var v = app.view; return { x: (sx - cw / 2) / v.z + v.cx, y: (sy - ch / 2) / v.z + v.cy }; }
 function setupCanvas(stage) {
   cw = 0; ch = 0; bgView = null; bgDirty = true;
-  cv = stage.querySelector('canvas'); ctx = cv.getContext('2d'); bg = document.createElement('canvas'); bgx = bg.getContext('2d');
+  cv = stage.querySelector('canvas'); ctx = cv.getContext('2d');
+  if (glcv && glcv.parentNode) glcv.parentNode.removeChild(glcv); glcv = document.createElement('canvas'); glcv.className = 'glmap'; cv.parentNode.insertBefore(glcv, cv.nextSibling); LIVE = null; bg = document.createElement('canvas'); bgx = bg.getContext('2d');
   sizeCanvas();
 }
 function sizeCanvas() {
@@ -212,6 +213,17 @@ function drawUnitIcon(c, x, y, u, col, o) {
   o = o || {}; var d = U[u.type], bw = 22, bh = 15, fly = o.fly;
   if (app.layers.models && !o.sym && app.view.z >= 0.25) {   // 3D model pictures: bird's-eye by default, angled when the map is tilted
     var tl = app.tilt || 0, spT = spriteOf(u.type, true), spA = tl > 0.02 ? spriteOf(u.type, false) : null, spX = spT || spA;
+    var mid = modelFor(u.type), useGL = LIVE && c === ctx && mid && liveOK !== false;
+    if (useGL) {
+      var S0 = iconPx(u.type), tm = c.getTransform(), g0 = (o.fade ? 0.5 : 1), sk = tm.a / dpr;
+      LIVE.push({ id: mid, x: tm.e / dpr + x * sk, y: tm.f / dpr + y * sk, hd: headOf(u), px: S0 * sk * 0.95, lift: fly ? S0 * 0.28 : 0 });
+      var rc0 = o.fade ? 'rgba(20,24,22,.5)' : (u.side === 'NATO' ? 'rgba(40,110,200,.5)' : 'rgba(200,60,50,.5)');
+      c.save(); c.translate(x, y); if (tl > 0.02) c.scale(1, 1 / Math.max(0.45, Math.cos(tl * 58 * Math.PI / 180)));
+      c.fillStyle = rc0; c.strokeStyle = col; c.lineWidth = o.sel ? 2.4 : 1.2; c.beginPath(); c.arc(0, 0, S0 * 0.5, 0, 7); c.fill(); c.stroke();
+      if (o.sel) { c.strokeStyle = '#ffd24a'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, 0, S0 * 0.6, 0, 7); c.stroke(); }
+      if (o.bar != null) { var bw0 = Math.max(14, S0 * 0.6), by0 = S0 * 0.58; c.fillStyle = '#000'; c.fillRect(-bw0 / 2, by0, bw0, 3); c.fillStyle = o.bar > 60 ? '#6fd08c' : o.bar > 30 ? '#f2b84b' : '#ff6b5b'; c.fillRect(-bw0 / 2, by0, bw0 * o.bar / 100, 3); }
+      c.restore(); return;
+    }
     if (spX) {
       var S = iconPx(u.type) * (1 + 0.25 * tl), hd = headOf(u), k = S / 44; c.save(); c.translate(x, y); if (tl > 0.02) c.scale(1, 1 / Math.max(0.45, Math.cos(tl * 58 * Math.PI / 180)));
       if (fly) { c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(4 + 4 * tl, 6 + 8 * tl, 13, 5 + 2 * tl, 0, 0, 7); c.fill(); }
@@ -245,7 +257,7 @@ function drawUnitIcon(c, x, y, u, col, o) {
 /* ---------- drawing the live layer ---------- */
 function ownUnits() { return app.st.units.filter(function (u) { return u.side === app.st.side && u.str > 0 && !u.cargoed; }); }
 function drawn(u) { var d = U[u.type]; return !(d.air && u.state === 'base') || app.view.z >= 0.8; }
-var PARK = {}, VP = {};
+var PARK = {}, VP = {}, glcv = null, LIVE = null, liveOK = null;
 function parkMap(st) {
   PARK = {}; var by = {};
   st.units.forEach(function (u) { if (u.side === st.side && U[u.type].air && u.state === 'base' && u.base != null && u.str > 0 && !u.cargoed) (by[u.base] = by[u.base] || []).push(u); });
@@ -287,8 +299,17 @@ function applyTilt() {
   cv.style.transform = t > 0.004 ? 'perspective(' + Math.round(cw * 1.5) + 'px) rotateX(' + (t * 58).toFixed(1) + 'deg) scale(' + (1 + 0.95 * t).toFixed(3) + ')' : '';
   var st = $('stage'); if (st) st.style.background = t > 0.004 ? 'linear-gradient(#27424f 0%,#0a141a 55%)' : '';
 }
+function flushLive() {
+  if (!glcv) return; var T = window.U75_3D;
+  if (!LIVE || !T) { if (glcv._on) { glcv.style.display = 'none'; glcv._on = false; } return; }
+  if (liveOK == null) { liveOK = T.liveOK(glcv); if (!liveOK) { liveOK = false; glcv.style.display = 'none'; return; } }
+  glcv.style.display = 'block'; glcv._on = true;
+  var t = app.tilt || 0, ox = cw * 0.5, oy = ch * 0.78, items = [];
+  LIVE.forEach(function (it) { if (it.x < -80 || it.x > cw + 80 || it.y < -80 || it.y > ch + 80) return; items.push({ id: it.id, x: it.x - ox, z: it.y - oy, hd: it.hd, px: it.px, lift: it.lift }); });
+  T.live(glcv, items, { cw: cw, ch: ch, ox: ox, oy: oy, tilt: t * 58 * Math.PI / 180, sc: 1 + 0.95 * t, d: cw * 1.5 }, app.glFlip);
+}
 function draw() {
-  sprBudget = 3; app.tilt = (app.tilt || 0) + ((app.tiltT || 0) - (app.tilt || 0)) * 0.22; if (Math.abs((app.tiltT || 0) - app.tilt) < 0.01) app.tilt = app.tiltT || 0; applyTilt(); var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
+  sprBudget = 3; LIVE = (app.layers.models && window.U75_3D && glcv && liveOK !== false) ? [] : null; app.tilt = (app.tilt || 0) + ((app.tiltT || 0) - (app.tilt || 0)) * 0.22; if (Math.abs((app.tiltT || 0) - app.tilt) < 0.01) app.tilt = app.tiltT || 0; applyTilt(); var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (geo.stRef !== st) { geo.stRef = st; W.refreshBloc(st); }
   if (geo.blocV !== st.blocV && (Date.now() - (geo.blocT || 0) > 600 || geo.stRef2 !== st)) { geo.blocT = Date.now(); geo.stRef2 = st; makeBlocImg(); bgDirty = true; }
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
@@ -425,6 +446,7 @@ function draw() {
       var ga = clamp(1 - (st.t - f.t) / 45, 0, 1); ctx.fillStyle = 'rgba(255,48,36,' + (0.25 + 0.65 * ga) + ')'; ctx.beginPath(); ctx.arc(p1[0], p1[1], 2.6, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(40,0,0,.8)'; ctx.lineWidth = 0.8; ctx.stroke();
     }
   });
+  flushLive();
   // scale bar
   var km = z > 3 ? 20 : z > 1.2 ? 50 : z > 0.5 ? 100 : 300; ctx.strokeStyle = '#d9e2dc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(10, ch - 14); ctx.lineTo(10 + km * z, ch - 14); ctx.stroke(); ctx.fillStyle = '#d9e2dc'; ctx.font = '10px ui-monospace,monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(km + ' km', 10, ch - 17);
 }
