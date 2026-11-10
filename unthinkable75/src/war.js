@@ -1540,7 +1540,7 @@ function airStep(st, dt) {
     }
     // fuel check: head home when the tank says so
     var near = nearestFriendlyLanding(st, u);
-    if (o.k !== 'rtb' && o.k !== 'land' && near && u.fuel < near.d * 1.25 + 30) { u.orders = [{ k: 'rtb', x: near.x, y: near.y, af: near.af, city: near.city }]; o = u.orders[0]; }
+    if (o.k !== 'rtb' && o.k !== 'land' && near && u.fuel < near.d * (o.k === 'lift' && o.stage === 'drop' ? 0.6 : 1.25) + 30) { u.orders = [{ k: 'rtb', x: near.x, y: near.y, af: near.af, city: near.city }]; o = u.orders[0]; }
     var spd = d.sp * dt / 60, tx = o.x, ty = o.y, tgt = o;
     if (o.k === 'lift') {
       var cu = o.stage === 'drop' ? null : unitById(st, o.uid);
