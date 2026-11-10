@@ -188,25 +188,32 @@ function drawSym(c, s, x, y, col) {
 }
 var SIDE_COL = { NATO: '#4da3ff', PACT: '#ff5b4a', NEUT: '#aaa' };
 var sprBudget = 0;
-function spriteOf(type) {
+var SPR = {}, HD = {};
+function spriteOf(type, top) {
   var T = window.U75_3D, id = T && modelFor(type); if (!id) return null;
-  var c = T.sprite.cache ? null : null; if (!window.__spr) window.__spr = {}; var S = window.__spr;
-  if (S[type] !== undefined) return S[type];
+  var k = type + (top ? ':t' : ':a'); if (SPR[k] !== undefined) return SPR[k];
   if (sprBudget <= 0) return null; sprBudget--;
-  return (S[type] = T.sprite(id));
+  return (SPR[k] = T.sprite(id, top));
+}
+function headOf(u) {   // direction of travel, kept while standing still
+  if (u.id == null) return u.side === 'NATO' ? Math.PI / 2 : -Math.PI / 2;
+  var h = HD[u.id]; if (!h) h = HD[u.id] = { x: u.x, y: u.y, a: u.side === 'NATO' ? Math.PI / 2 : -Math.PI / 2 };
+  var dx = u.x - h.x, dy = u.y - h.y; if (dx * dx + dy * dy > 0.36) { h.a = Math.atan2(dx, -dy); h.x = u.x; h.y = u.y; } return h.a;
 }
 function drawUnitIcon(c, x, y, u, col, o) {
   o = o || {}; var d = U[u.type], bw = 22, bh = 15, fly = o.fly;
-  if (app.layers.models && !o.sym && app.view.z >= 0.25) {   // 3D model picture instead of the flat symbol
-    var sp = spriteOf(u.type);
-    if (sp) {
-      var S = 44; c.save(); c.translate(x, y);
-      if (fly) { c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(3, 14, 14, 5, 0, 0, 7); c.fill(); }
-      c.fillStyle = o.fade ? 'rgba(20,24,22,.55)' : (u.side === 'NATO' ? 'rgba(40,110,200,.6)' : 'rgba(200,60,50,.6)');
-      c.beginPath(); c.ellipse(0, 12, 17, 6, 0, 0, 7); c.fill(); c.strokeStyle = col; c.lineWidth = o.sel ? 2.4 : 1.2; c.stroke();
-      c.drawImage(sp, -S / 2, -S / 2 - 3, S, S);
-      if (o.sel) { c.strokeStyle = '#ffd24a'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, -2, 24, 0, 7); c.stroke(); }
-      if (o.bar != null) { c.fillStyle = '#000'; c.fillRect(-bw / 2, 20, bw, 3); c.fillStyle = o.bar > 60 ? '#6fd08c' : o.bar > 30 ? '#f2b84b' : '#ff6b5b'; c.fillRect(-bw / 2, 20, bw * o.bar / 100, 3); }
+  if (app.layers.models && !o.sym && app.view.z >= 0.25) {   // 3D model pictures: bird's-eye by default, angled when the map is tilted
+    var tl = app.tilt || 0, spT = spriteOf(u.type, true), spA = tl > 0.02 ? spriteOf(u.type, false) : null, spX = spT || spA;
+    if (spX) {
+      var S = 40 + 10 * tl, hd = headOf(u); c.save(); c.translate(x, y);
+      if (fly) { c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(4 + 4 * tl, 6 + 8 * tl, 13, 5 + 2 * tl, 0, 0, 7); c.fill(); }
+      var rc = o.fade ? 'rgba(20,24,22,.5)' : (u.side === 'NATO' ? 'rgba(40,110,200,.55)' : 'rgba(200,60,50,.55)');
+      c.fillStyle = rc; c.strokeStyle = col; c.lineWidth = o.sel ? 2.4 : 1.2; c.beginPath();
+      if (tl > 0.5) c.ellipse(0, 11, 17, 6, 0, 0, 7); else c.arc(0, 0, 19, 0, 7); c.fill(); c.stroke();
+      if (spT && tl < 0.98) { c.save(); c.globalAlpha *= 1 - tl; c.rotate(hd); c.drawImage(spT, -S / 2, -S / 2, S, S); c.restore(); }
+      if (spA && tl > 0.02) { c.save(); c.globalAlpha *= tl; c.drawImage(spA, -S / 2, -S / 2 - 3, S, S); c.restore(); }
+      if (o.sel) { c.strokeStyle = '#ffd24a'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, 0, 24, 0, 7); c.stroke(); }
+      if (o.bar != null) { c.fillStyle = '#000'; c.fillRect(-bw / 2, 22, bw, 3); c.fillStyle = o.bar > 60 ? '#6fd08c' : o.bar > 30 ? '#f2b84b' : '#ff6b5b'; c.fillRect(-bw / 2, 22, bw * o.bar / 100, 3); }
       c.restore(); return;
     }
   }
@@ -253,7 +260,7 @@ var OMETA = { move: { c: '#7fd0ff', l: 'MOVE HERE', s: 'flag', dash: [1, 0] }, a
   haul: { c: '#f2b84b', l: 'SUPPLY RUN', s: 'dot' }, lift: { c: '#7fd0ff', l: 'LIFT / DROP', s: 'dot' }, land: { c: '#aaaaaa', l: 'LAND HERE', s: 'flag' }, rtb: { c: '#aaaaaa', l: 'RETURN', s: 'flag' } };
 var KCOL = { bombard: '#ff9f5b', airstrike: '#ffd24a', move: '#9fd8ff', amove: '#ff9f5b', hunt: '#ff5b4a', cas: '#ff5b4a', strike: '#ffd24a', recon: '#aaf', cap: '#6fd08c', loiter: '#ff9f5b', awacs: '#6fd08c', rtb: '#999', land: '#999', haul: '#f2b84b', lift: '#9fd8ff' };
 function draw() {
-  sprBudget = 3; var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
+  sprBudget = 3; app.tilt = (app.tilt || 0) + ((app.tiltT || 0) - (app.tilt || 0)) * 0.22; if (Math.abs((app.tiltT || 0) - app.tilt) < 0.01) app.tilt = app.tiltT || 0; var st = app.st; if (!st || !ctx) return; sizeCanvas(); var v = app.view, z = v.z, side = st.side, con = st.con[side];
   if (geo.stRef !== st) { geo.stRef = st; W.refreshBloc(st); }
   if (geo.blocV !== st.blocV && (Date.now() - (geo.blocT || 0) > 600 || geo.stRef2 !== st)) { geo.blocT = Date.now(); geo.stRef2 = st; makeBlocImg(); bgDirty = true; }
   if (bgDirty || !bgView || (Date.now() - lastBG > 140 && (bgView.cx !== v.cx || bgView.cy !== v.cy || bgView.z !== z))) renderBG();
@@ -533,7 +540,7 @@ function panelUnits() {
   app.sel = su.map(function (u) { return u.id; });
   if (app.pick) h += '<div class="note">' + esc(PICKTXT[app.pick.kind] || '') + '</div>';
   if (!su.length && !app.selNode && app.selCon == null) {
-    h += '<div class="note">Tap one of your units, an airfield or a city on the map. Drag to pan, pinch to zoom.</div><div class="chips">' + chip('selall:ground', 'SELECT ALL GROUND') + chip('selall:air', 'SELECT ALL AIR') + chip('selall:heli', 'ALL HELICOPTERS') + chip('selall:naval', 'ALL SHIPS') + '</div>';
+    h += '<div class="note">Tap one of your units, an airfield or a city on the map. Drag to pan, pinch to zoom, swipe up with two fingers to tilt into 3D.</div><div class="chips">' + chip('selall:ground', 'SELECT ALL GROUND') + chip('selall:air', 'SELECT ALL AIR') + chip('selall:heli', 'ALL HELICOPTERS') + chip('selall:naval', 'ALL SHIPS') + '</div>';
     return h;
   }
   if (su.length) {
@@ -764,7 +771,7 @@ function panelManage() {
   h += '<div class="lbl">Time</div><div class="chips">' + SPEEDS.map(function (s, i) { return chip('speed:' + i, i ? '▶ ' + SPEEDN[i] : '⏸ pause', '', app.speed === i); }).join('') + '</div>';
   h += '<div class="lbl">Auto-pause when</div><div class="chips">' + [['contact', 'new contact'], ['battle', 'battle starts'], ['lost', 'unit lost'], ['nuke', 'nuclear event'], ['idle', 'unit idle']].map(function (x) { return chip('ap:' + x[0], x[1], '', st.set.pause[x[0]]); }).join('') + '</div>';
   h += '<div class="lbl">Logistics</div><div class="chips">' + chip('auto', 'AUTO SUPPLY TRAINS ' + (st.set.auto !== false ? 'ON' : 'OFF'), '', st.set.auto !== false) + '</div>';
-  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts'], ['models', '3D unit models']].map(function (x) { return chip('layer:' + x[0], x[1], '', app.layers[x[0]]); }).join('') + '</div>';
+  h += '<div class="lbl">Map layers</div><div class="chips">' + [['roads', 'roads'], ['rails', 'railways'], ['air', 'airfields'], ['cities', 'cities'], ['cons', 'enemy contacts'], ['models', '3D unit models'], ['tilt', 'tilted 3D view']].map(function (x) { return chip('layer:' + x[0], x[1], '', x[0] === 'tilt' ? !!app.tiltT : app.layers[x[0]]); }).join('') + '</div>';
   var v = W.vpShift(st), me = st.side;
   h += '<div class="card"><h3>War status</h3><div class="kv"><span>Day</span><span>' + W.dayOf(st) + ' / ' + W.MAX_DAYS + '</span><span>NATO will</span><span>' + Math.round(st.will.NATO) + '</span><span>Pact will</span><span>' + Math.round(st.will.PACT) + '</span><span>Ground gained, NATO</span><span>' + Math.round(v.NATO * 100) + '%</span><span>Ground gained, Pact</span><span>' + Math.round(v.PACT * 100) + '%</span><span>Units lost N/P</span><span>' + st.stats.lost.NATO + ' / ' + st.stats.lost.PACT + '</span></div><p>First to gain 28% of the other side\'s value wins; if will hits zero that side collapses.</p></div>';
   h += '<div class="chips">' + chip('save', 'SAVE') + chip('menu', 'MENU') + chip('cease', 'PROPOSE CEASEFIRE') + '</div>';
@@ -931,7 +938,7 @@ document.addEventListener('click', function (ev) {
     case 'bg': app.bg = !app.bg; try { localStorage.setItem('u75bg', app.bg ? '1' : '0'); } catch (e) {} bgLast = Date.now(); toast(app.bg ? '⏱ Keep-playing ON: the war runs at your current speed while you do other things.' : '⏱ Keep-playing OFF: the war pauses when you leave.'); paintTop(); return;
     case 'speed': if (st && !st.deploy) { app.speed = +arg; paintTop(); renderDock(true); } return;
     case 'ap': st.set.pause[arg] = !st.set.pause[arg]; renderDock(true); return;
-    case 'layer': app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
+    case 'layer': if (arg === 'tilt') { app.tiltT = app.tiltT ? 0 : 1; renderDock(true); return; } app.layers[arg] = !app.layers[arg]; bgDirty = true; renderDock(true); return;
     case 'stance': { var nS = W.setStance(st, app.sel, arg); toast(nS + (nS === 1 ? ' unit' : ' units') + ' set to ' + ({ aggr: 'aggressive', pass: 'passive', neut: 'neutral' }[arg])); renderDock(true); return; }
     case 'utab': app.utab = arg; renderDock(true); return;
     case 'simple': app.simple = arg === '1'; renderDock(true); return;
@@ -994,7 +1001,12 @@ function bindCanvas() {
   cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); ptrs[e.pointerId] = { x: e.offsetX, y: e.offsetY, sx: e.offsetX, sy: e.offsetY, t: Date.now() }; drag = { moved: false, cx: app.view.cx, cy: app.view.cy, n: Object.keys(ptrs).length, d0: pinchDist(), z0: app.view.z }; });
   cv.addEventListener('pointermove', function (e) {
     var p = ptrs[e.pointerId]; if (!p) return; p.x = e.offsetX; p.y = e.offsetY; var ks = Object.keys(ptrs);
-    if (ks.length >= 2 && drag.d0 > 0) { var dd = pinchDist(); app.view.z = drag.z0 * dd / drag.d0; clampView(); drag.moved = true; bgDirty = true; return; }
+    if (ks.length >= 2 && drag.d0 > 0) {
+      var dd = pinchDist(), cyy = (ptrs[ks[0]].y + ptrs[ks[1]].y) / 2; if (drag.cy0 == null) { drag.cy0 = cyy; drag.t0 = app.tiltT || 0; }
+      if (!drag.gm) { var dz = Math.abs(dd - drag.d0), dyv = Math.abs(cyy - drag.cy0); if (dz > 28 || dyv > 28) drag.gm = dyv > dz * 1.2 ? 'tilt' : 'zoom'; }
+      drag.moved = true;
+      if (drag.gm === 'tilt') { app.tiltT = Math.max(0, Math.min(1, drag.t0 + (drag.cy0 - cyy) / 160)); if (app.tiltT > 0.9) app.tiltT = 1; if (app.tiltT < 0.1) app.tiltT = 0; return; }
+      if (drag.gm === 'zoom') { app.view.z = drag.z0 * dd / drag.d0; clampView(); bgDirty = true; } return; }
     if (ks.length === 1) { var dx = p.x - p.sx, dy = p.y - p.sy; if (Math.abs(dx) + Math.abs(dy) > 16) drag.moved = true; if (drag.moved) { app.view.cx = drag.cx - dx / app.view.z; app.view.cy = drag.cy - dy / app.view.z; clampView(); } }
   });
   function up(e) { var p = ptrs[e.pointerId]; delete ptrs[e.pointerId]; if (p && drag && !drag.moved && drag.n === 1) { var held = Date.now() - p.t; if (held < 450 || held >= 1800) onTap(p.x, p.y); else if (app.sel.length && !app.pick && !app.st.deploy && app.sel.some(function (id) { var uu = W.unitById(app.st, id); return uu && !U[uu.type].air; })) { app.pick = { kind: 'move' }; onTap(p.x, p.y); } else onTap(p.x, p.y); } if (!Object.keys(ptrs).length) drag = null; else { drag = { moved: true, cx: app.view.cx, cy: app.view.cy, n: 2, d0: 0, z0: app.view.z }; var q = ptrs[Object.keys(ptrs)[0]]; q.sx = q.x; q.sy = q.y; } }

@@ -25,18 +25,18 @@ function spriteInit() {
   try { SP.rd = new Renderer(cv, { alpha: true }); if (!SP.rd.ok) SP.rd = null; } catch (e) { SP.rd = null; }
   SP.cam = new Cam(); SP.ps = new Particles(); return SP.rd;
 }
-/* small transparent picture of a model (canvas 96x96) for map icons; null when WebGL is missing */
-function sprite(id) {
-  if (SP.cache[id] !== undefined) return SP.cache[id];
-  var rd = spriteInit(); if (!rd) return (SP.cache[id] = null);
+/* small transparent picture of a model (canvas 96x96) for map icons; top = straight from above, nose pointing up; null when WebGL is missing */
+function sprite(id, top) {
+  var key = id + (top ? ':t' : ':a'); if (SP.cache[key] !== undefined) return SP.cache[key];
+  var rd = spriteInit(); if (!rd) return (SP.cache[key] = null);
   try {
     var m = getModel(id); m.resetPose(); m.xf = M4.id(); m.updateWorld();
     var R = Math.max(m.radius, 1), c = m.center, cam = SP.cam;
-    cam.az = 40; cam.el = 32; cam.tgt = [c[0], c[1], c[2]]; cam.want = cam.tgt.slice(); cam.dist = R * 3.0; cam.near = Math.max(0.05, R * 0.05); cam.far = R * 40; cam.sh = [0, 0, 0];
+    cam.az = top ? 180 : 40; cam.el = top ? 89 : 32; cam.tgt = [c[0], c[1], c[2]]; cam.want = cam.tgt.slice(); cam.dist = R * (top ? 2.7 : 3.0); cam.near = Math.max(0.05, R * 0.05); cam.far = R * 40; cam.sh = [0, 0, 0];
     rd.render({ cam: cam, models: [m], ents: [], env: ENVS.day, ps: SP.ps, water: false, t: 0, R: R, flash: 0, toon: true, outline: true, shadows: false, bare: true, outlinePx: 1.8 });
     var out = document.createElement('canvas'); out.width = out.height = 96; out.getContext('2d').drawImage(rd.cv, 0, 0, rd.cv.width, rd.cv.height, 0, 0, 96, 96);
-    return (SP.cache[id] = out);
-  } catch (e) { return (SP.cache[id] = null); }
+    return (SP.cache[key] = out);
+  } catch (e) { return (SP.cache[key] = null); }
 }
 '''
 out = ("/* 3D model viewer: engine + vehicle models (from models/src, built by make3d.py). Exposes window.U75_3D */\nwindow.U75_3D = (function () {\n" + body + tail +

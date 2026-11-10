@@ -2382,18 +2382,18 @@ function spriteInit() {
   try { SP.rd = new Renderer(cv, { alpha: true }); if (!SP.rd.ok) SP.rd = null; } catch (e) { SP.rd = null; }
   SP.cam = new Cam(); SP.ps = new Particles(); return SP.rd;
 }
-/* small transparent picture of a model (canvas 96x96) for map icons; null when WebGL is missing */
-function sprite(id) {
-  if (SP.cache[id] !== undefined) return SP.cache[id];
-  var rd = spriteInit(); if (!rd) return (SP.cache[id] = null);
+/* small transparent picture of a model (canvas 96x96) for map icons; top = straight from above, nose pointing up; null when WebGL is missing */
+function sprite(id, top) {
+  var key = id + (top ? ':t' : ':a'); if (SP.cache[key] !== undefined) return SP.cache[key];
+  var rd = spriteInit(); if (!rd) return (SP.cache[key] = null);
   try {
     var m = getModel(id); m.resetPose(); m.xf = M4.id(); m.updateWorld();
     var R = Math.max(m.radius, 1), c = m.center, cam = SP.cam;
-    cam.az = 40; cam.el = 32; cam.tgt = [c[0], c[1], c[2]]; cam.want = cam.tgt.slice(); cam.dist = R * 3.0; cam.near = Math.max(0.05, R * 0.05); cam.far = R * 40; cam.sh = [0, 0, 0];
+    cam.az = top ? 180 : 40; cam.el = top ? 89 : 32; cam.tgt = [c[0], c[1], c[2]]; cam.want = cam.tgt.slice(); cam.dist = R * (top ? 2.7 : 3.0); cam.near = Math.max(0.05, R * 0.05); cam.far = R * 40; cam.sh = [0, 0, 0];
     rd.render({ cam: cam, models: [m], ents: [], env: ENVS.day, ps: SP.ps, water: false, t: 0, R: R, flash: 0, toon: true, outline: true, shadows: false, bare: true, outlinePx: 1.8 });
     var out = document.createElement('canvas'); out.width = out.height = 96; out.getContext('2d').drawImage(rd.cv, 0, 0, rd.cv.width, rd.cv.height, 0, 0, 96, 96);
-    return (SP.cache[id] = out);
-  } catch (e) { return (SP.cache[id] = null); }
+    return (SP.cache[key] = out);
+  } catch (e) { return (SP.cache[key] = null); }
 }
 
 var MAP3D = {"m113": "m113", "mech": "m113", "inf": "m113", "mot": "bmp1", "btr": "bmp1", "r_btr": "bmp2", "party": "mtlb", "m_puma": "puma", "m_inf": "cv90", "brdm": "brdm", "recon": "brdm", "m_boxer": "boxer", "m_stryker": "stryker", "m_recon": "fennek", "r_recon": "recon", "cav": "dingo", "m_fpv": "fpv", "arty": "m109", "m_pzh": "m109", "r_msta": "msta", "m_himars": "himars", "r_tornado": "tornado", "r_tos": "tos1", "m_m777": "m777", "mortar": "mortar", "pmortar": "pmortar", "lance": "lance", "pershing": "pershing", "frog": "frog", "scud": "scud", "ss12": "ss12", "r_isk": "iskander", "m_pat": "patriot", "r_s300": "s300", "r_s400": "s400", "aa": "hawk", "paa": "sa6", "r_pantsir": "pantsir", "m_iris": "iris", "m_shorad": "skyranger", "convoy": "convoy", "pconvoy": "pconvoy", "eng": "bridge", "peng": "peng", "train": "train", "ptrain": "ptrain", "f4": "f4", "rf4": "f4", "f104": "f104", "jag": "jag", "a7": "a7", "f111": "f111", "f15": "f15", "mig21": "mig21", "mig23": "mig23", "su7": "su7", "su17": "su17", "su24": "su24", "mig25": "mig25", "typhoon": "typhoon", "f35": "f35", "f16": "f16", "rafale": "rafale", "gripen": "gripen", "f15e": "f15e", "a10": "a10", "su35": "su35", "su34": "su34", "su57": "su57", "mig31": "mig31", "b52": "b52", "m_b52": "b52", "vulcan": "vulcan", "ec121": "ec121", "e3": "e3", "kc135": "kc135", "kc46": "kc46", "e7": "e7", "m_b1": "b1", "tu16": "tu16", "tu22": "tu22", "tu95": "tu95", "tu160": "tu160", "tu22m": "tu22m", "a50": "a50", "tu126": "tu126", "ah1": "ah1", "m_ah64": "ah64", "mi24": "mi24", "r_ka52": "ka52", "r_mi28": "mi28", "mi8": "mi8", "r_mi8": "mi8", "ch47": "ch47", "m_ch47": "ch47", "mq9": "mq9", "rq4": "rq4", "orion": "orion", "r_geran": "geran", "r_lancet": "lancet", "nimitz": "nimitz", "forrestal": "forrestal", "clemenceau": "clemenceau", "arkroyal": "arkroyal", "kiev": "kiev", "m_burke": "m_burke", "m_fremm": "m_fremm", "m_visby": "m_visby", "belknap": "belknap", "adams": "adams", "knox": "knox", "leander": "leander", "type42": "type42", "spruance": "spruance", "tiger": "tiger", "moskva": "moskva", "kara": "kara", "kresta": "kresta", "sverdlov": "sverdlov", "kashin": "kashin", "krivak": "krivak", "riga": "riga", "nanuchka": "nanuchka", "osa": "osa", "r_karakurt": "r_karakurt", "r_gorshkov": "r_gorshkov", "iwojima": "iwojima", "roro": "roro", "m_roro": "roro", "sovtrans": "sovtrans", "r_sealift": "sovtrans", "alligator": "alligator", "ropucha": "ropucha", "r_ropucha": "ropucha", "sturgeon": "sturgeon", "la688": "la688", "m_astute": "m_astute", "type206": "type206", "kobben": "kobben", "victor": "victor", "charlie": "charlie", "foxtrot": "foxtrot", "r_kilo": "r_kilo", "e2": "e2", "e2d": "e2d", "c130": "c130", "m_c130": "m_c130", "an12": "an12", "r_il76": "r_il76", "m_lhd": "wasp", "armor": "m60", "m_leo": "leo2", "m_abrams": "abrams", "m_chall": "chall3", "tank": "t62", "gtank": "t62", "r_t72": "t72", "r_t90": "t90", "r_t14": "t14"};
