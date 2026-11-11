@@ -2417,7 +2417,7 @@ function live(cv, items, P, flip) {
   var draws = [];
   items.forEach(function (it) {
     var m; try { m = getModel(it.id); } catch (e) { return; }
-    var L = Math.max(m.size[0], m.size[2], 0.01), k = it.px / L;
+    var L = Math.max(m.size[0], m.size[2], 0.01); if (L <= 14) L = Math.min(L, Math.max(m.size[0], 1) * 2.4); var k = it.px / L * ((it.id === 'bridge' || it.id === 'peng') ? 0.7 : 1);
     var xf = M4.mul(M4.mul(M4.mul(M4.T(it.x, it.lift || 0, it.z), M4.Ry((Math.PI - it.hd) * 180 / Math.PI)), M4.S(k, k, k)), M4.T(-m.center[0], -m.bmin[1], -m.center[2]));
     draws.push({ m: m, xf: xf });
   });
