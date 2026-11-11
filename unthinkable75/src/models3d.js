@@ -446,7 +446,7 @@ void main(){
   col += vec3(uFlash)*(0.5+0.5*max(nl,0.0));
   if(uWater>-1000.0){ float dep = clamp((uWater-vW.y)/max(uBase,0.001),0.0,1.0); col = mix(col, vec3(0.01,0.09,0.13), dep*0.78); }
   col = mix(col,uTint.rgb,uTint.a);
-  col = col/(1.0+col*0.12);
+  col = col/(1.0+col)*1.55;
   col = pow(col,vec3(1.0/2.2));
   gl_FragColor = vec4(col,1.0);
 }`;
@@ -2392,12 +2392,13 @@ function sprite(id, top) {
     var m = getModel(id); m.resetPose(); m.xf = M4.id(); m.updateWorld();
     var R = Math.max(m.radius, 1), c = m.center, cam = SP.cam;
     cam.az = top ? 180 : 40; cam.el = top ? 89 : 32; cam.tgt = [c[0], c[1], c[2]]; cam.want = cam.tgt.slice(); cam.dist = R * (top ? 2.7 : 3.0); cam.near = Math.max(0.05, R * 0.05); cam.far = R * 40; cam.sh = [0, 0, 0];
-    rd.render({ cam: cam, models: [m], ents: [], env: ENVS.day, ps: SP.ps, water: false, t: 0, R: R, flash: 0, toon: true, outline: true, shadows: false, bare: true, outlinePx: 1.8 });
+    rd.render({ cam: cam, models: [m], ents: [], env: MAPENV, ps: SP.ps, water: false, t: 0, R: R, flash: 0, toon: true, outline: true, shadows: false, bare: true, outlinePx: 1.8 });
     var out = document.createElement('canvas'); out.width = out.height = 96; out.getContext('2d').drawImage(rd.cv, 0, 0, rd.cv.width, rd.cv.height, 0, 0, 96, 96);
     return (SP.cache[key] = out);
   } catch (e) { return (SP.cache[key] = null); }
 }
 
+var MAPENV = Object.assign({}, ENVS.day, { sunCol: [0.82, 0.76, 0.66], skyL: [0.50, 0.55, 0.68], gndL: [0.38, 0.36, 0.30] });
 var LV = { rd: undefined, cv: null, cam: null };
 function liveInit(cv) {
   if (LV.cv !== cv) { LV.cv = cv; try { LV.rd = new Renderer(cv, { alpha: true }); if (!LV.rd.ok) LV.rd = null; } catch (e) { LV.rd = null; } LV.cam = new Cam(); LV.cam.fov = 38; }
@@ -2420,7 +2421,7 @@ function live(cv, items, P, flip) {
     var xf = M4.mul(M4.mul(M4.mul(M4.T(it.x, it.lift || 0, it.z), M4.Ry((Math.PI - it.hd) * 180 / Math.PI)), M4.S(k, k, k)), M4.T(-m.center[0], -m.bmin[1], -m.center[2]));
     draws.push({ m: m, xf: xf });
   });
-  rd.render({ cam: LV.cam, models: [], ents: [], env: ENVS.day, ps: null, water: false, t: 0, R: 5, flash: 0, toon: true, outline: true, shadows: false, bare: true, outlinePx: 1.2, vp: vp, draws: draws, cw: flip, nocull: true });
+  rd.render({ cam: LV.cam, models: [], ents: [], env: MAPENV, ps: null, water: false, t: 0, R: 5, flash: 0, toon: true, outline: true, shadows: false, bare: true, outlinePx: 1.2, vp: vp, draws: draws, cw: flip });
   return true;
 }
 

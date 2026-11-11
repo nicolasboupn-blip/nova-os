@@ -212,13 +212,13 @@ function headOf(u) {   // direction of travel, kept while standing still
 }
 function drawUnitIcon(c, x, y, u, col, o) {
   o = o || {}; var d = U[u.type], bw = 22, bh = 15, fly = o.fly;
-  if (app.mstyle === 'pics' && !o.sym && app.view.z >= 0.25) {   // 3D model pictures: bird's-eye by default, angled when the map is tilted
+  if ((app.mstyle === 'pics' || app.mstyle === 'live') && !o.sym && app.view.z >= 0.25) {   // 3D model pictures: bird's-eye by default, angled when the map is tilted
     var tl = app.tilt || 0, spT = spriteOf(u.type, true), spA = tl > 0.02 ? spriteOf(u.type, false) : null, spX = spT || spA;
     var mid = modelFor(u.type), useGL = LIVE && !o.sym && c === ctx && mid && liveOK !== false;
     if (useGL) {
       var S0 = iconPx(u.type), tm = c.getTransform(), g0 = (o.fade ? 0.5 : 1), sk = tm.a / dpr;
       LIVE.push({ id: mid, x: tm.e / dpr + x * sk, y: tm.f / dpr + y * sk, hd: headOf(u), px: S0 * sk * 0.95, lift: fly ? S0 * 0.28 : 0 });
-      var rc0 = o.fade ? 'rgba(20,24,22,.5)' : (u.side === 'NATO' ? 'rgba(40,110,200,.5)' : 'rgba(200,60,50,.5)');
+      var rc0 = o.fade ? 'rgba(20,24,22,.5)' : (u.side === 'NATO' ? 'rgba(40,110,200,.16)' : 'rgba(200,60,50,.16)');
       c.save(); c.translate(x, y); if (tl > 0.02) c.scale(1, 1 / Math.max(0.45, Math.cos(tl * 58 * Math.PI / 180)));
       c.fillStyle = rc0; c.strokeStyle = col; c.lineWidth = o.sel ? 2.4 : 1.2; c.beginPath(); c.arc(0, 0, S0 * 0.5, 0, 7); c.fill(); c.stroke();
       if (o.sel) { c.strokeStyle = '#ffd24a'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, 0, S0 * 0.6, 0, 7); c.stroke(); }
