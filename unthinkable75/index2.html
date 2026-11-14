@@ -4747,7 +4747,7 @@ function s2w(sx, sy) { var v = app.view; return { x: (sx - cw / 2) / v.z + v.cx,
 function setupCanvas(stage) {
   cw = 0; ch = 0; bgView = null; bgDirty = true;
   cv = stage.querySelector('canvas'); ctx = cv.getContext('2d');
-  if (glcv && glcv.parentNode) glcv.parentNode.removeChild(glcv); glcv = document.createElement('canvas'); glcv.className = 'glmap'; cv.parentNode.insertBefore(glcv, cv.nextSibling); LIVE = null; bg = document.createElement('canvas'); bgx = bg.getContext('2d');
+  if (!glcv) { glcv = document.createElement('canvas'); glcv.className = 'glmap'; } cv.parentNode.insertBefore(glcv, cv.nextSibling); LIVE = null; bg = document.createElement('canvas'); bgx = bg.getContext('2d');
   sizeCanvas();
 }
 function sizeCanvas() {
