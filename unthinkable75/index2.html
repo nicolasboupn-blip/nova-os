@@ -2603,20 +2603,32 @@ const SH = {};
 SH.mainV = `
 attribute vec3 aPos; attribute vec3 aNrm; attribute vec3 aCol; attribute float aMat; attribute vec3 aON;
 uniform mat4 uVP; uniform mat4 uM; uniform float uOut; uniform vec3 uCam;
-varying vec3 vN; varying vec3 vCol; varying float vMat; varying vec3 vW;
+varying vec3 vN; varying vec3 vCol; varying float vMat; varying vec3 vW; varying vec3 vL;
 void main(){
   vec4 w = uM * vec4(aPos,1.0);
   vec3 wn = mat3(uM)*aNrm;
   if(uOut>0.0){ vec3 on = normalize(mat3(uM)*aON); float d = length(uCam-w.xyz); w.xyz += on*uOut*d; }
-  vW=w.xyz; vN=wn; vCol=aCol; vMat=aMat;
+  vL=aPos; vW=w.xyz; vN=wn; vCol=aCol; vMat=aMat;
   gl_Position = uVP*w;
 }`;
 SH.mainF = `
 precision highp float;
-varying vec3 vN; varying vec3 vCol; varying float vMat; varying vec3 vW;
+varying vec3 vN; varying vec3 vCol; varying float vMat; varying vec3 vW; varying vec3 vL;
 uniform vec3 uSun; uniform vec3 uCam; uniform vec3 uSky; uniform vec3 uGnd; uniform vec3 uSunCol;
 uniform float uFlash; uniform float uMode; uniform float uToon; uniform vec4 uTint; uniform vec3 uOutC;
 uniform float uWater; uniform float uBase; uniform float uShA;
+float h3(vec3 p){ return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }
+float vn(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+vec3 paint(vec3 c, vec3 p){
+  float camo = vn(p*0.8)*0.6 + vn(p*2.1)*0.3 + vn(p*6.0)*0.1;
+  vec3 g = abs(fract(p*1.2+0.5)-0.5); float seam = smoothstep(0.0,0.035,min(min(g.x,g.y),g.z));
+  float lum = dot(c,vec3(0.33));
+  vec3 dark = c*0.62, light = mix(c,vec3(lum*1.15),0.25);
+  vec3 o = mix(dark, light, smoothstep(0.30,0.70,camo));
+  return o*(0.88+0.12*seam);
+}
 void main(){
   if(uMode>1.5){ gl_FragColor=vec4(0.02,0.03,0.05,uShA); return; }
   if(uMode>0.5){ gl_FragColor=vec4(uOutC,1.0); return; }
@@ -2630,7 +2642,7 @@ void main(){
   float fr = pow(1.0-max(dot(N,V),0.0),3.0);
   if(vMat>1.5 && vMat<2.5){ col = vCol*1.7; }
   else {
-    col = vCol*(amb*0.95*ao + uSunCol*diff*1.0);
+    col = ((vMat>0.5)?vCol:paint(vCol,vL))*(amb*0.95*ao + uSunCol*diff*1.0);
     vec3 H = normalize(L+V); float sp = pow(max(dot(N,H),0.0),56.0);
     if(vMat>0.5 && vMat<1.5){ col += uSunCol*sp*0.32*step(0.0,nl) + uSky*fr*0.10; }
     else if(vMat>2.5){ col = vCol*0.35*amb + uSunCol*sp*1.4*step(0.0,nl) + uSky*(0.22+fr*0.55); }
@@ -4933,6 +4945,7 @@ function flushLive() {
   glcv.style.display = 'block'; glcv._on = true;
   var t = app.tilt || 0, ox = cw * 0.5, oy = ch * 0.78, items = [];
   LIVE.forEach(function (it) { if (it.x < -80 || it.x > cw + 80 || it.y < -80 || it.y > ch + 80) return; items.push({ id: it.id, x: it.x - ox, z: it.y - oy, hd: it.hd, px: it.px, lift: it.lift }); });
+  app._live = items;
   T.live(glcv, items, { cw: cw, ch: ch, ox: ox, oy: oy, tilt: t * 58 * Math.PI / 180, sc: 1 + 0.95 * t, d: cw * 1.5 }, app.glFlip);
 }
 function draw() {

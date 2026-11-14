@@ -307,6 +307,7 @@ function flushLive() {
   glcv.style.display = 'block'; glcv._on = true;
   var t = app.tilt || 0, ox = cw * 0.5, oy = ch * 0.78, items = [];
   LIVE.forEach(function (it) { if (it.x < -80 || it.x > cw + 80 || it.y < -80 || it.y > ch + 80) return; items.push({ id: it.id, x: it.x - ox, z: it.y - oy, hd: it.hd, px: it.px, lift: it.lift }); });
+  app._live = items;
   T.live(glcv, items, { cw: cw, ch: ch, ox: ox, oy: oy, tilt: t * 58 * Math.PI / 180, sc: 1 + 0.95 * t, d: cw * 1.5 }, app.glFlip);
 }
 function draw() {

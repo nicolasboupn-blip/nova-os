@@ -15,6 +15,25 @@ rep("gl.clearColor(env.hor[0], env.hor[1], env.hor[2], 1);", "if (sc.bare) gl.cl
 rep("gl.bindBuffer(gl.ARRAY_BUFFER, this.sVB); gl.enableVertexAttribArray(p.a.aPos); gl.vertexAttribPointer(p.a.aPos, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);",
     "if (!sc.bare) { gl.bindBuffer(gl.ARRAY_BUFFER, this.sVB); gl.enableVertexAttribArray(p.a.aPos); gl.vertexAttribPointer(p.a.aPos, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLES, 0, 3); }")
 rep("if (!sc.water) {\n      p = this.pGround;", "if (!sc.water && !sc.bare) {\n      p = this.pGround;")
+VAR = "varying vec3 vN; varying vec3 vCol; varying float vMat; varying vec3 vW;"
+rep(VAR + "\nvoid main(){", VAR + " varying vec3 vL;\nvoid main(){")
+rep(VAR + "\nuniform vec3 uSun;", VAR + " varying vec3 vL;\nuniform vec3 uSun;")
+rep("vW=w.xyz; vN=wn;", "vL=aPos; vW=w.xyz; vN=wn;")
+rep("uniform float uWater; uniform float uBase; uniform float uShA;\nvoid main(){", """uniform float uWater; uniform float uBase; uniform float uShA;
+float h3(vec3 p){ return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }
+float vn(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+vec3 paint(vec3 c, vec3 p){
+  float camo = vn(p*0.8)*0.6 + vn(p*2.1)*0.3 + vn(p*6.0)*0.1;
+  vec3 g = abs(fract(p*1.2+0.5)-0.5); float seam = smoothstep(0.0,0.035,min(min(g.x,g.y),g.z));
+  float lum = dot(c,vec3(0.33));
+  vec3 dark = c*0.62, light = mix(c,vec3(lum*1.15),0.25);
+  vec3 o = mix(dark, light, smoothstep(0.30,0.70,camo));
+  return o*(0.88+0.12*seam);
+}
+void main(){""")
+rep("col = vCol*(amb*0.95*ao + uSunCol*diff*1.0);", "col = ((vMat>0.5)?vCol:paint(vCol,vL))*(amb*0.95*ao + uSunCol*diff*1.0);")
 rep("col = col/(1.0+col*0.12);", "col = col/(1.0+col)*1.55;")
 rep("const P = M4.persp(fov, asp, cam.near, cam.far), VP = M4.mul(P, V);", "const P = M4.persp(fov, asp, cam.near, cam.far), VP = sc.vp || M4.mul(P, V);")
 rep("    gl.cullFace(gl.BACK);\n    for (const m of all) this.drawModel(m, env, 0);", "    gl.cullFace(gl.BACK); if (sc.nocull) gl.disable(gl.CULL_FACE);\n    each((m) => this.drawModel(m, env, 0));")
