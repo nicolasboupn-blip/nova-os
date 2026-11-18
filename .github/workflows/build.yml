@@ -16,15 +16,24 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Pick the build number
+        # one counter for normal builds AND older-version builds, so every new APK installs over the last one
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 300 --json tagName -q '.[].tagName' | grep -oE '[0-9]+$' | sort -n | tail -1)
+          N=$(( ${N:-0} + 1 ))
+          if [ "$N" -lt "$GITHUB_RUN_NUMBER" ]; then N=$GITHUB_RUN_NUMBER; fi
+          echo "BUILD=$N" >> "$GITHUB_ENV"
       - name: Unpack and build
         run: |
           for z in NovaOS*.zip; do unzip -q -o "$z"; done
           cd novaos
           chmod +x gradlew
-          ./gradlew assembleRelease
+          GITHUB_RUN_NUMBER=$BUILD ./gradlew assembleRelease
       - name: Publish APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: nova-${{ github.run_number }}
-          name: NOVA build ${{ github.run_number }}
+          tag_name: nova-${{ env.BUILD }}
+          name: NOVA build ${{ env.BUILD }}
           files: novaos/app/build/outputs/apk/release/app-release.apk

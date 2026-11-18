@@ -1,0 +1,56 @@
+name: Build an older NOVA
+
+# Started from NOVA > Settings > UPDATES > SWITCH VERSION (or by hand: Actions > Build an older NOVA > Run workflow).
+# Builds the version you pick again with a NEW build number, so it installs over your current NOVA and keeps your data.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version code from NOVA (like zz150), or NEWEST'
+        required: true
+        default: 'NEWEST'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Pick the version and build number
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANT: ${{ inputs.version }}
+        run: |
+          V=$(echo "$WANT" | tr -d '[:space:]')
+          N=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 300 --json tagName -q '.[].tagName' | grep -oE '[0-9]+$' | sort -n | tail -1)
+          N=$(( ${N:-0} + 1 ))
+          echo "BUILD=$N" >> "$GITHUB_ENV"
+          if [ "$V" = "NEWEST" ] || [ "$V" = "newest" ]; then
+            for z in NovaOS*.zip; do unzip -q -o "$z"; done
+            echo "TAG=nova-$N" >> "$GITHUB_ENV"
+            echo "PRE=false" >> "$GITHUB_ENV"
+          else
+            case "$V" in *[!A-Za-z0-9-]*) echo "Bad version code: $V"; exit 1;; esac
+            if [ ! -f "NovaOS-$V.zip" ]; then echo "There is no NovaOS-$V.zip"; exit 1; fi
+            unzip -q -o "NovaOS-$V.zip"
+            echo "TAG=old-$V-$N" >> "$GITHUB_ENV"
+            echo "PRE=true" >> "$GITHUB_ENV"
+          fi
+      - name: Build
+        run: |
+          cd novaos
+          chmod +x gradlew
+          GITHUB_RUN_NUMBER=$BUILD ./gradlew assembleRelease
+      - name: Publish APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: NOVA ${{ env.TAG }}
+          prerelease: ${{ env.PRE }}
+          files: novaos/app/build/outputs/apk/release/app-release.apk
